@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+
+# Secrets and local configuration
+.env
+.env.*
+!*.env.example
+Secrets.swift
+
+# PlatformIO / ESP32 build output
+firmware/krebb-one/.pio/
+
+# Python tools
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local project planning context
+Krebb_MASTER_CONTEXT.md
