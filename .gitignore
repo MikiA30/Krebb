@@ -16,12 +16,21 @@ xcuserdata/
 Secrets.swift
 
 # PlatformIO / ESP32 build output
-firmware/krebb-one/.pio/
+firmware/esp32/.pio/
 
 # Python tools
 __pycache__/
 *.py[cod]
 .venv/
+
+# Private experiment data and trained model artifacts
+ml/data/raw/*
+!ml/data/raw/.gitignore
+!ml/data/raw/.gitkeep
+ml/artifacts/
+*.joblib
+*.pkl
+*.onnx
 
 # Local project planning context
 Krebb_MASTER_CONTEXT.md

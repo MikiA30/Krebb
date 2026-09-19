@@ -1,5 +1,7 @@
 # Krebb One BLE Protocol
 
+This document is retained as the transport-level reference. The current product-level packet definition lives in [sensor-protocol.md](sensor-protocol.md).
+
 Status: draft. Both the iOS and firmware owners must approve changes before implementation.
 
 ## Goals

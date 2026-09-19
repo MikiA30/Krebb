@@ -8,4 +8,4 @@ KrebbTests/     Unit tests
 KrebbUITests/   UI tests
 ```
 
-The app must support mock measurements until Krebb One is available, then decode the shared BLE contract in `docs/BLE_PROTOCOL.md`.
+The app must support mock measurements until Krebb One is available, then decode the shared sensor schema in `shared/schemas/`.

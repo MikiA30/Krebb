@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KrebbMeasurementSession",
+  "type": "object",
+  "required": ["sessionId", "startedAtMs", "deviceSamples"],
+  "properties": {
+    "sessionId": { "type": "string" },
+    "startedAtMs": { "type": "integer" },
+    "deviceSamples": { "type": "array" },
+    "healthSamples": { "type": "array" },
+    "label": { "enum": ["no_meal", "small", "moderate", "large"] }
+  },
+  "additionalProperties": true
+}

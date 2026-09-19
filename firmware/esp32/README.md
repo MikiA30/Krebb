@@ -1,4 +1,4 @@
-# Krebb One firmware
+# Krebb One ESP32 firmware
 
 This directory contains ESP32 firmware for sensor acquisition and BLE publishing.
 
@@ -9,4 +9,4 @@ lib/       Local reusable libraries
 test/      Firmware tests
 ```
 
-The firmware publishes measurements according to [the shared BLE contract](../../docs/BLE_PROTOCOL.md).
+The firmware publishes measurements according to [the shared sensor protocol](../../docs/sensor-protocol.md).
