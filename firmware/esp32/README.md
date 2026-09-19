@@ -1,6 +1,6 @@
 # Krebb One ESP32 firmware
 
-This directory contains ESP32 firmware for sensor acquisition and BLE publishing.
+This directory contains ESP32-S3 firmware for DS18B20 contact-temperature acquisition, ambient-temperature acquisition, and BLE publishing.
 
 ```
 src/       Application entry points

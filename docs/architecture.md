@@ -3,9 +3,9 @@
 ## End-to-end flow
 
 ```text
-TMP117 + BME280 + optional MAX30102        Apple Watch / HealthKit
+DS18B20 + ambient sensor                    Apple Watch / HealthKit
                   │                                  │
-                  └────────── BLE + iOS ─────────────┘
+                  └──── ESP32-S3 -> BLE + iOS ───────┘
                                      ↓
                        synchronized measurement session
                                      ↓
@@ -18,7 +18,7 @@ TMP117 + BME280 + optional MAX30102        Apple Watch / HealthKit
 
 ## Responsibilities
 
-- **ESP32 firmware:** acquires TMP117, BME280, and optional MAX30102 readings; publishes BLE packets.
+- **ESP32 firmware:** acquires DS18B20 contact-temperature and ambient-temperature readings; publishes BLE packets.
 - **iOS app:** guides baseline and post-meal sessions, receives BLE measurements, reads permitted HealthKit signals, and shows results.
 - **ML pipeline:** joins synchronized signals, extracts session-level features, and produces a research response classification.
 - **Shared layer:** defines packet and sample-session formats used by firmware, the simulator, the pipeline, and iOS.

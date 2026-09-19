@@ -25,18 +25,14 @@ Krebb One exposes one custom BLE service with a notify characteristic for live m
 
 ```json
 {
-  "heartRateBpm": 78,
-  "spo2Percent": 97,
+  "timestampMs": 1760000000000,
+  "skinTemperatureC": 33.4,
   "ambientTemperatureC": 24.8,
-  "relativeHumidityPercent": 46.2,
-  "vocPpb": 132,
-  "breathSignal": 0.72,
-  "quality": 0.91,
-  "timestampMs": 1760000000000
+  "sensorQuality": 0.91
 }
 ```
 
-All fields except `timestampMs` may be `null` when unavailable. `quality` is a normalized value from `0.0` to `1.0`; it represents measurement confidence, not medical certainty.
+All fields except `timestampMs` may be `null` when unavailable. `sensorQuality` is a normalized value from `0.0` to `1.0`; it represents contact and measurement confidence, not medical certainty. Heart rate and activity are iOS/Apple Watch session context and are not emitted by the ESP32.
 
 ## Update behavior
 

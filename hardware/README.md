@@ -8,4 +8,4 @@ wiring/    Pin maps and wiring diagrams
 bom/       Bill of materials
 ```
 
-The current sensor plan is TMP117 for contact temperature, BME280 for ambient context, and optional MAX30102 for PPG. A thermal camera is not required for the MVP.
+The current sensor plan is DS18B20 for contact temperature and an ambient-temperature sensor for environmental context. Apple Watch data is optional heart-rate and activity context. A thermal camera is not required for the MVP.

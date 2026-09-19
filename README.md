@@ -1,6 +1,6 @@
 # Krebb
 
-Krebb is a personalized metabolic-response research prototype. It synchronizes contact temperature, ambient conditions, heart rate, and activity around a meal to characterize a person's physiological meal response. The hackathon prototype classifies response level; it does not present calorie intake as a validated measurement.
+Krebb is a personalized metabolic-response research prototype. An ESP32-S3 streams DS18B20 contact temperature and ambient conditions to an iPhone; Apple Watch heart-rate and activity data are optional context. The hackathon prototype classifies response level and does not present calorie intake as a validated measurement.
 
 ## System flow
 

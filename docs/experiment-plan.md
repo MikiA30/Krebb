@@ -7,8 +7,9 @@ Can synchronized, within-person changes in heart rate, contact temperature, ambi
 ## Scope
 
 - This is an exploratory prototype, not a calorimeter, medical device, or validated calorie estimator.
-- Use contact temperature from TMP117 and ambient temperature/humidity from BME280.
-- Use MAX30102 or permitted Apple Watch / HealthKit data for heart rate and activity.
+- Use contact temperature from DS18B20 and the available ambient-temperature sensor.
+- Use permitted Apple Watch / HealthKit data for heart rate and activity when available; mock or imported data keeps the app flow testable without Watch integration.
+- Keep DS18B20 placement and contact pressure consistent across a session.
 - A thermal camera is not required.
 
 ## Session procedure
