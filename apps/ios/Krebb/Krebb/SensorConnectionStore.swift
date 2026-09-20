@@ -14,6 +14,11 @@ struct SensorMeasurement: Equatable {
     let receivedAt: Date
 }
 
+struct DiscoveredSensor: Equatable {
+    let name: String
+    let rssi: Int
+}
+
 enum SensorConnectionState: Equatable {
     case idle
     case bluetoothUnavailable(String)
@@ -50,12 +55,16 @@ final class SensorConnectionStore: NSObject, ObservableObject {
     @Published private(set) var latestMeasurement: SensorMeasurement?
     @Published private(set) var packetCount = 0
     @Published private(set) var lastError: String?
+    @Published private(set) var discoveredSensor: DiscoveredSensor?
 
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
 
     func start() {
         lastError = nil
+        latestMeasurement = nil
+        packetCount = 0
+        discoveredSensor = nil
         if central == nil {
             central = CBCentralManager(delegate: self, queue: nil)
         } else {
@@ -69,6 +78,7 @@ final class SensorConnectionStore: NSObject, ObservableObject {
         }
         central?.stopScan()
         peripheral = nil
+        discoveredSensor = nil
         state = .idle
     }
 
@@ -98,6 +108,9 @@ extension SensorConnectionStore: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        discoveredSensor = DiscoveredSensor(name: advertisedName ?? peripheral.name ?? "Krebb One",
+                                            rssi: RSSI.intValue)
         self.peripheral = peripheral
         self.peripheral?.delegate = self
         state = .connecting

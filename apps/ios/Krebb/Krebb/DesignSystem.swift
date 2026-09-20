@@ -53,11 +53,15 @@ struct SensorSheet: View {
                 }
                 Section("Your setup") {
                     LabeledContent("Krebb One", value: sensorConnection.state.label)
+                    if let sensor = sensorConnection.discoveredSensor {
+                        LabeledContent("Detected device", value: "\(sensor.name) · \(sensor.rssi) dBm")
+                    }
                     LabeledContent("Packets received", value: "\(sensorConnection.packetCount)")
                     Button(sensorConnection.state.isReceiving ? "Stop sensor" : "Scan for Krebb One") {
                         sensorConnection.state.isReceiving ? sensorConnection.stop() : sensorConnection.start()
                     }
                     if let measurement = sensorConnection.latestMeasurement {
+                        LabeledContent("Last packet", value: measurement.receivedAt.formatted(date: .omitted, time: .standard))
                         if let skin = measurement.packet.skinTemperatureC {
                             LabeledContent("Skin", value: "\(skin.formatted(.number.precision(.fractionLength(2)))) °C")
                         }
@@ -65,6 +69,9 @@ struct SensorSheet: View {
                             LabeledContent("Room", value: "\(ambient.formatted(.number.precision(.fractionLength(1)))) °C")
                         }
                         LabeledContent("Quality", value: measurement.packet.sensorQuality.formatted(.number.precision(.fractionLength(2))))
+                    } else if sensorConnection.state.isReceiving {
+                        Text("Connected, but no measurement packet has arrived yet.")
+                            .foregroundStyle(.secondary)
                     }
                     if let error = sensorConnection.lastError {
                         Text(error).foregroundStyle(.red)

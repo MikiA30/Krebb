@@ -144,13 +144,19 @@ struct CheckView: View {
     private var sensorControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             LabeledContent("Krebb One", value: sensorConnection.state.label)
+            if let sensor = sensorConnection.discoveredSensor {
+                LabeledContent("Detected BLE device", value: "\(sensor.name) · \(sensor.rssi) dBm")
+            }
             if sensorConnection.packetCount > 0 {
                 LabeledContent("Packets received", value: "\(sensorConnection.packetCount)")
+            } else if sensorConnection.state.isReceiving {
+                Text("Connected, waiting for the first measurement packet.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             HStack {
-                Button(sensorConnection.state.isReceiving ? "Start sensor check" : "Scan for Krebb One",
+                Button(sensorConnection.state.isReceiving ? "Start live sensor check" : "Scan for Krebb One",
                        systemImage: sensorConnection.state.isReceiving ? "record.circle" : "antenna.radiowaves.left.and.right") {
-                    if sensorConnection.state.isReceiving {
+                    if sensorConnection.packetCount > 0 {
                         justFinished = false
                         note = ""
                         sessions.startSensorSession()
@@ -160,7 +166,8 @@ struct CheckView: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(sensorConnection.state.isReceiving && sessions.active != nil)
+                .disabled((sensorConnection.state.isReceiving && sensorConnection.packetCount == 0) ||
+                          (sensorConnection.state.isReceiving && sessions.active != nil))
 
                 if !sensorConnection.state.isReceiving {
                     Button("Sensors", systemImage: "slider.horizontal.3") { showsSensors = true }
@@ -187,6 +194,7 @@ struct SessionReadout: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             LabeledContent("Temperature samples", value: "\(session.readings.count)")
+            LabeledContent("Source", value: session.isSimulated ? "Simulation" : "Live BLE packets")
             if let skin = session.readings.last?.skinTemperatureC {
                 LabeledContent("Skin", value: temperature(skin))
             }
@@ -199,6 +207,10 @@ struct SessionReadout: View {
             if let delta = session.latestDelta {
                 LabeledContent("Change from baseline", value: temperature(delta))
                     .foregroundStyle(KrebbPalette.blush)
+            }
+            if !session.isSimulated, let deviceTimestamp = session.readings.last?.deviceTimestampMs {
+                LabeledContent("Device timestamp", value: "\(deviceTimestamp)")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             SessionChart(session: session).frame(height: 200)
             if let reading = session.healthSnapshots.last?.heartRate {
