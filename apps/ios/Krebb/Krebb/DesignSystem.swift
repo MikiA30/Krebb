@@ -3,8 +3,10 @@ import SwiftUI
 enum KrebbPalette {
     static let canvas = Color(red: 0.035, green: 0.035, blue: 0.043)
     static let surface = Color(red: 0.085, green: 0.078, blue: 0.085)
+    static let raisedSurface = Color(red: 0.115, green: 0.098, blue: 0.108)
     static let coral = Color(red: 1, green: 0.30, blue: 0.38)
     static let blush = Color(red: 1, green: 0.65, blue: 0.67)
+    static let wine = Color(red: 0.34, green: 0.035, blue: 0.075)
 }
 
 struct SampleLabel: View {

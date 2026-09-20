@@ -36,6 +36,7 @@ struct CheckView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("What are you observing?")
                                 .font(.headline)
+                            LabelSuggestionChips(note: $note)
                             TextField("Breakfast, coffee, walk, no meal...", text: $note)
                                 .textFieldStyle(.roundedBorder)
                                 .focused($noteIsFocused)
@@ -253,26 +254,35 @@ struct SessionReadout: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            LabeledContent("Temperature samples", value: "\(session.readings.count)")
-            LabeledContent("Source", value: session.isSimulated ? "Simulation" : "Live BLE packets")
-            if let skin = session.readings.last?.skinTemperatureC {
-                LabeledContent("Skin", value: temperature(skin))
-            }
-            if let ambient = session.readings.last?.ambientTemperatureC {
-                LabeledContent("Room", value: temperature(ambient))
-            }
-            if let baseline = session.baseline {
-                LabeledContent(session.stage == .baseline ? "Baseline so far" : "Baseline", value: temperature(baseline))
-            }
-            if let delta = session.latestDelta {
-                LabeledContent("Change from baseline", value: temperature(delta))
-                    .foregroundStyle(KrebbPalette.blush)
-            }
-            if !session.isSimulated, let deviceTimestamp = session.readings.last?.deviceTimestampMs {
-                LabeledContent("Device timestamp", value: "\(deviceTimestamp)")
-                    .font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(session.stage == .baseline ? "Building baseline" : "Response trend")
+                        .font(.headline)
+                    Text(session.isSimulated ? "Simulation" : "Live sensor")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(KrebbPalette.blush)
+                }
+                Spacer()
+                if let delta = session.latestDelta {
+                    Text(delta, format: .number.sign(strategy: .always()).precision(.fractionLength(2)))
+                        .font(.title2.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(KrebbPalette.coral)
+                    Text("°C")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
             SessionChart(session: session).frame(height: 200)
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
+                GridRow {
+                    metric("Samples", "\(session.readings.count)")
+                    metric("Skin", session.readings.last?.skinTemperatureC.map(temperature) ?? "--")
+                }
+                GridRow {
+                    metric("Room", session.readings.last?.ambientTemperatureC.map(temperature) ?? "--")
+                    metric(session.stage == .baseline ? "Baseline so far" : "Baseline", session.baseline.map(temperature) ?? "--")
+                }
+            }
             if let reading = session.healthSnapshots.last?.heartRate {
                 LabeledContent("Attached heart rate", value: reading.displayValue)
                 Text("Recorded \(reading.timestamp.formatted(date: .abbreviated, time: .standard)) · \(reading.sourceName ?? "HealthKit")")
@@ -281,10 +291,23 @@ struct SessionReadout: View {
             Text("\(session.healthSnapshots.count) Health snapshots attached")
                 .font(.caption).foregroundStyle(.secondary)
         }
+        .padding(18)
+        .background(KrebbPalette.raisedSurface, in: RoundedRectangle(cornerRadius: 20))
     }
 
     private func temperature(_ value: Double) -> String {
         "\(value.formatted(.number.precision(.fractionLength(2)))) °C"
+    }
+
+    private func metric(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.subheadline.weight(.medium).monospacedDigit())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -328,6 +351,25 @@ struct BaselineGuidanceView: View {
         }
         .padding(16)
         .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct LabelSuggestionChips: View {
+    @Binding var note: String
+
+    private let suggestions = ["Breakfast", "Lunch", "Dinner", "Snack", "Coffee", "No meal"]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(suggestions, id: \.self) { suggestion in
+                    Button(suggestion) { note = suggestion }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.bordered)
+                        .tint(note == suggestion ? KrebbPalette.coral : .secondary)
+                }
+            }
+        }
     }
 }
 

@@ -28,10 +28,7 @@ struct TodayView: View {
                 }
 
                 if let session = sessions.active ?? sessions.completed.first {
-                    Text(session.isSimulated ? "Simulated temperature" : "Sensor recording")
-                        .font(.subheadline).foregroundStyle(KrebbPalette.blush)
-                    Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption).foregroundStyle(.secondary)
+                    TodaySessionHeader(session: session)
                     SessionReadout(session: session)
                 } else {
                     signature
@@ -145,6 +142,37 @@ struct TodayView: View {
             Text(value).font(.title2.weight(.medium).monospacedDigit())
             Text("°C").font(.subheadline).foregroundStyle(.secondary)
         }
+    }
+}
+
+struct TodaySessionHeader: View {
+    let session: MeasurementSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(session.isSimulated ? "Simulation" : "Live sensor", systemImage: session.isSimulated ? "play.circle" : "sensor.tag.radiowaves.forward.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(KrebbPalette.blush)
+                Spacer()
+                Text(session.startedAt.formatted(date: .omitted, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(session.title)
+                .font(.largeTitle.weight(.semibold))
+                .lineLimit(2)
+            Text(session.stage == .complete ? "Saved response" : "Recording in progress")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .background(
+            LinearGradient(colors: [KrebbPalette.wine, KrebbPalette.surface],
+                           startPoint: .topLeading,
+                           endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 24)
+        )
     }
 }
 
