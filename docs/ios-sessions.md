@@ -14,7 +14,7 @@ Today displays the active recording or latest saved session. Before any recordin
 
 ## Storage and recovery
 
-`SessionStore` writes a version-1 Codable JSON archive at `Application Support/KrebbSessions/sessions.json` inside the iOS app container. It contains the current draft and completed sessions. Writes are atomic and use complete file protection; the directory is excluded from device cloud backup. No cloud upload or export is implemented.
+`SessionStore` writes a version-1 Codable JSON archive at `Application Support/KrebbSessions/sessions.json` inside the iOS app container. It contains the current draft and completed sessions. Writes are atomic and use complete file protection; the directory is excluded from device cloud backup. No cloud upload is implemented.
 
 Every accepted reading and state transition is saved. Failed writes leave the previous in-memory and on-disk state intact and show an error. An unreadable or unsupported archive is preserved and writes are blocked instead of replacing the archive with an empty one. Notes are also saved while editing.
 
@@ -22,12 +22,18 @@ The simulator produces one temperature sample per foreground second. The baselin
 
 BLE packets are decoded from the Krebb One measurement characteristic and saved only while a sensor session is active. The app charts phone arrival time and retains the ESP32 `timestampMs` on each reading because the current firmware clock may be unsynced.
 
+## Journal export
+
+Completed Journal sessions show a non-ML response feature summary: baseline sample count, observation sample count, baseline skin temperature, latest and peak skin-temperature delta, temperature area under the curve, time to peak, average sensor quality, and duration when available.
+
+The detail screen can share a pretty-printed JSON export matching `shared/schemas/measurement-session.schema.json`. The export includes session provenance, note, phone-recorded sample timestamps, optional ESP32 timestamps, Health context snapshots, and feature values. Sharing is user-initiated; the app still stores sessions locally only.
+
 ## Health context
 
 HealthKit access remains explicit in Sensors. Already-loaded optional Health snapshots are attached at simulation start/finish, or via the Attach button. Identical consecutive snapshots are deduplicated. The heart-rate measurement timestamp and source are retained; snapshot capture time is separate. These readings can predate the session and are context, not a synchronized live heart-rate stream. The step value is an individual HealthKit sample, not today's total.
 
 ## Next integration gate
 
-Validate BLE against the physical board, then tune baseline duration and quality gates from real skin-contact data. Live sessions still need cancellation/interruption handling. Export should explicitly map the local archive to the shared ML schema rather than assuming the two formats already match.
+Validate BLE against the physical board, then tune baseline duration and quality gates from real skin-contact data. Live sessions still need cancellation/interruption handling. The export is ready for the Python pipeline, but the schema can still evolve once real sessions show which fields are noisy or missing.
 
 Tests cover draft recovery, completion/reload, fixed baseline, Health timestamp retention and deduplication, missing/invalid values, corrupt archives, write failures, and the UI save/relaunch flow.

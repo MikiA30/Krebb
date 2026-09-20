@@ -48,7 +48,147 @@ struct MeasurementSession: Codable, Identifiable {
         return skin - baseline
     }
 
-    var title: String { isSimulated ? "Simulation check" : "Sensor check" }
+    var title: String {
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedNote.isEmpty { return trimmedNote }
+        return isSimulated ? "Simulation check" : "Sensor check"
+    }
+
+    var sourceLabel: String { isSimulated ? "simulation" : "sensor" }
+
+    @MainActor var featureSummary: SessionFeatureSummary {
+        SessionFeatureSummary(session: self)
+    }
+
+    @MainActor var export: SessionExport {
+        SessionExport(session: self)
+    }
+
+    @MainActor var exportJSONString: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        guard let data = try? encoder.encode(export),
+              let json = String(data: data, encoding: .utf8) else { return "{}" }
+        return json
+    }
+}
+
+struct SessionFeatureSummary: Codable, Equatable {
+    let baselineSampleCount: Int
+    let observationSampleCount: Int
+    let baselineSkinTemperatureC: Double?
+    let latestDeltaSkinTemperatureC: Double?
+    let peakDeltaSkinTemperatureC: Double?
+    let temperatureAreaCelsiusSeconds: Double?
+    let timeToPeakSeconds: Double?
+    let averageSensorQuality: Double?
+    let durationSeconds: Double?
+
+    @MainActor init(session: MeasurementSession) {
+        let observationStart = session.observationStartedAt
+        let baselineReadings = session.readings.filter { reading in
+            guard let observationStart else { return true }
+            return reading.recordedAt < observationStart
+        }
+        let observationReadings = session.readings.filter { reading in
+            guard let observationStart else { return false }
+            return reading.recordedAt >= observationStart
+        }
+        let baseline = session.baseline
+        let deltas = observationReadings.compactMap { reading -> (Date, Double)? in
+            guard let baseline, let skin = reading.skinTemperatureC else { return nil }
+            return (reading.recordedAt, skin - baseline)
+        }
+        let peak = deltas.max { $0.1 < $1.1 }
+        let qualities = session.readings.compactMap(\.sensorQuality)
+
+        baselineSampleCount = baselineReadings.compactMap(\.skinTemperatureC).count
+        observationSampleCount = observationReadings.compactMap(\.skinTemperatureC).count
+        baselineSkinTemperatureC = baseline
+        latestDeltaSkinTemperatureC = session.latestDelta
+        peakDeltaSkinTemperatureC = peak?.1
+        temperatureAreaCelsiusSeconds = Self.areaUnderCurve(deltas)
+        timeToPeakSeconds = peak.flatMap { peak in observationStart.map { peak.0.timeIntervalSince($0) } }
+        averageSensorQuality = qualities.isEmpty ? nil : qualities.reduce(0, +) / Double(qualities.count)
+        durationSeconds = session.endedAt.map { $0.timeIntervalSince(session.startedAt) }
+    }
+
+    private static func areaUnderCurve(_ points: [(Date, Double)]) -> Double? {
+        guard points.count >= 2 else { return nil }
+        return zip(points, points.dropFirst()).reduce(0) { total, pair in
+            let seconds = pair.1.0.timeIntervalSince(pair.0.0)
+            return total + ((pair.0.1 + pair.1.1) / 2) * seconds
+        }
+    }
+}
+
+struct SessionExport: Codable, Equatable {
+    let sessionId: String
+    let source: String
+    let note: String
+    let startedAtMs: Int64
+    let observationStartedAtMs: Int64?
+    let endedAtMs: Int64?
+    let baselineSkinTemperatureC: Double?
+    let deviceSamples: [DeviceSampleExport]
+    let healthSamples: [HealthSampleExport]
+    let features: SessionFeatureSummary
+
+    @MainActor init(session: MeasurementSession) {
+        sessionId = session.id.uuidString
+        source = session.sourceLabel
+        note = session.note
+        startedAtMs = session.startedAt.millisecondsSince1970
+        observationStartedAtMs = session.observationStartedAt?.millisecondsSince1970
+        endedAtMs = session.endedAt?.millisecondsSince1970
+        baselineSkinTemperatureC = session.baseline
+        deviceSamples = session.readings.map { DeviceSampleExport(reading: $0, observationStartedAt: session.observationStartedAt) }
+        healthSamples = session.healthSnapshots.map { HealthSampleExport(snapshot: $0) }
+        features = session.featureSummary
+    }
+}
+
+struct DeviceSampleExport: Codable, Equatable {
+    let recordedAtMs: Int64
+    let deviceTimestampMs: Int64?
+    let phase: String
+    let skinTemperatureC: Double?
+    let ambientTemperatureC: Double?
+    let sensorQuality: Double?
+
+    init(reading: SessionReading, observationStartedAt: Date?) {
+        recordedAtMs = reading.recordedAt.millisecondsSince1970
+        deviceTimestampMs = reading.deviceTimestampMs
+        phase = observationStartedAt.map { reading.recordedAt < $0 ? "baseline" : "observation" } ?? "baseline"
+        skinTemperatureC = reading.skinTemperatureC
+        ambientTemperatureC = reading.ambientTemperatureC
+        sensorQuality = reading.sensorQuality
+    }
+}
+
+struct HealthSampleExport: Codable, Equatable {
+    let capturedAtMs: Int64
+    let source: String
+    let heartRateBpm: Double?
+    let heartRateRecordedAtMs: Int64?
+    let heartRateSource: String?
+    let stepCount: Double?
+
+    init(snapshot: HealthContextSnapshot) {
+        capturedAtMs = snapshot.capturedAt.millisecondsSince1970
+        source = snapshot.source
+        heartRateBpm = snapshot.heartRate?.beatsPerMinute
+        heartRateRecordedAtMs = snapshot.heartRate?.timestamp.millisecondsSince1970
+        heartRateSource = snapshot.heartRate?.sourceName
+        stepCount = snapshot.stepCount
+    }
+}
+
+private extension Date {
+    var millisecondsSince1970: Int64 {
+        Int64((timeIntervalSince1970 * 1000).rounded())
+    }
 }
 
 /// One atomic archive preserves both completed sessions and the in-progress draft.

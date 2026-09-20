@@ -58,7 +58,7 @@ final class KrebbUITests: XCTestCase {
         app.tabBars.buttons["Journal"].tap()
         XCTAssertTrue(app.buttons["savedSession"].waitForExistence(timeout: 5))
         app.buttons["savedSession"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Simulation check"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Breakfast"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Simulated temperature · saved locally"].exists)
         capture("Journal — saved simulation after relaunch", app: app)
     }

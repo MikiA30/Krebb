@@ -144,4 +144,52 @@ struct KrebbTests {
         #expect(store.active?.readings.first?.deviceTimestampMs == packet.timestampMs)
     }
 
+    @Test @MainActor func completedSessionExportsFeaturesAndSamples() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date(timeIntervalSince1970: 1_760_000_000)
+        let store = SessionStore(directory: directory)
+
+        store.startSensorSession(at: start)
+        store.record(SessionReading(recordedAt: start,
+                                    deviceTimestampMs: 1_760_000_000_000,
+                                    skinTemperatureC: 33.0,
+                                    ambientTemperatureC: 24.0,
+                                    sensorQuality: 0.8))
+        store.record(SessionReading(recordedAt: start.addingTimeInterval(1),
+                                    deviceTimestampMs: 1_760_000_001_000,
+                                    skinTemperatureC: 33.2,
+                                    ambientTemperatureC: 24.0,
+                                    sensorQuality: 0.9))
+        store.record(SessionReading(recordedAt: start.addingTimeInterval(2),
+                                    deviceTimestampMs: 1_760_000_002_000,
+                                    skinTemperatureC: 33.1,
+                                    ambientTemperatureC: 24.1,
+                                    sensorQuality: 1.0))
+        store.beginObservation(note: "Breakfast", at: start.addingTimeInterval(3))
+        store.record(SessionReading(recordedAt: start.addingTimeInterval(4),
+                                    deviceTimestampMs: 1_760_000_004_000,
+                                    skinTemperatureC: 33.6,
+                                    ambientTemperatureC: 24.1,
+                                    sensorQuality: 0.9))
+        store.record(SessionReading(recordedAt: start.addingTimeInterval(5),
+                                    deviceTimestampMs: 1_760_000_005_000,
+                                    skinTemperatureC: 33.8,
+                                    ambientTemperatureC: 24.1,
+                                    sensorQuality: 0.8))
+        #expect(store.finish(at: start.addingTimeInterval(6)))
+
+        let session = try #require(store.completed.first)
+        #expect(session.title == "Breakfast")
+        #expect(session.featureSummary.baselineSampleCount == 3)
+        #expect(session.featureSummary.observationSampleCount == 2)
+        #expect(abs((session.featureSummary.peakDeltaSkinTemperatureC ?? 0) - 0.7) < 0.0001)
+        #expect(session.export.source == "sensor")
+        #expect(session.export.deviceSamples.first?.phase == "baseline")
+        #expect(session.export.deviceSamples.last?.phase == "observation")
+        #expect(session.export.deviceSamples.first?.recordedAtMs == 1_760_000_000_000)
+        #expect(session.exportJSONString.contains("\"features\""))
+        #expect(session.exportJSONString.contains("\"note\" : \"Breakfast\""))
+    }
+
 }

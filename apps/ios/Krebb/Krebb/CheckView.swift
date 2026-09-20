@@ -270,6 +270,8 @@ struct JournalView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(session.title).font(.headline)
+                        Text(session.isSimulated ? "Simulation check" : "Sensor check")
+                            .font(.caption).foregroundStyle(KrebbPalette.blush)
                         Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                             .font(.subheadline).foregroundStyle(.secondary)
                         Text("\(session.readings.count) temperature samples · \(session.healthSnapshots.count) Health snapshots")
@@ -290,6 +292,7 @@ struct JournalView: View {
 
 struct SessionDetailView: View {
     let session: MeasurementSession
+    @State private var showsExport = false
 
     var body: some View {
         ScrollView {
@@ -299,6 +302,32 @@ struct SessionDetailView: View {
                 Text(session.startedAt.formatted(date: .abbreviated, time: .standard))
                 if !session.note.isEmpty { Text(session.note) }
                 SessionReadout(session: session)
+                FeatureSummaryView(summary: session.featureSummary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Data export").font(.headline)
+                    Text("This is the session package we can hand to the Python pipeline later. It stays local unless you share it.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    HStack {
+                        ShareLink(item: session.exportJSONString,
+                                  subject: Text("Krebb session \(session.title)")) {
+                            Label("Share JSON", systemImage: "square.and.arrow.up")
+                        }
+                        .buttonStyle(.bordered)
+                        Button(showsExport ? "Hide preview" : "Preview JSON", systemImage: "doc.text.magnifyingglass") {
+                            showsExport.toggle()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if showsExport {
+                        ScrollView(.horizontal) {
+                            Text(session.exportJSONString)
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
+                                .padding(12)
+                        }
+                        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
                 Text("Temperature trends are experimental observations, not a metabolic score.")
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding(24)
@@ -306,5 +335,68 @@ struct SessionDetailView: View {
         .background(KrebbPalette.canvas)
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct FeatureSummaryView: View {
+    let summary: SessionFeatureSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Response features").font(.headline)
+            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
+                GridRow {
+                    feature("Baseline samples", "\(summary.baselineSampleCount)")
+                    feature("Observation samples", "\(summary.observationSampleCount)")
+                }
+                GridRow {
+                    feature("Baseline skin", temperature(summary.baselineSkinTemperatureC))
+                    feature("Latest change", signedTemperature(summary.latestDeltaSkinTemperatureC))
+                }
+                GridRow {
+                    feature("Peak change", signedTemperature(summary.peakDeltaSkinTemperatureC))
+                    feature("Time to peak", seconds(summary.timeToPeakSeconds))
+                }
+                GridRow {
+                    feature("Temp AUC", auc(summary.temperatureAreaCelsiusSeconds))
+                    feature("Avg quality", quality(summary.averageSensorQuality))
+                }
+            }
+        }
+        .padding(16)
+        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func feature(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.body.weight(.medium).monospacedDigit())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func temperature(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return "\(value.formatted(.number.precision(.fractionLength(2)))) °C"
+    }
+
+    private func signedTemperature(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return "\(value.formatted(.number.sign(strategy: .always()).precision(.fractionLength(2)))) °C"
+    }
+
+    private func seconds(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return "\(value.formatted(.number.precision(.fractionLength(0)))) s"
+    }
+
+    private func auc(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return "\(value.formatted(.number.precision(.fractionLength(1)))) °C·s"
+    }
+
+    private func quality(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return value.formatted(.number.precision(.fractionLength(2)))
     }
 }

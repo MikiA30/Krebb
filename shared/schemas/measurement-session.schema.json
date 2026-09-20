@@ -5,9 +5,58 @@
   "required": ["sessionId", "startedAtMs", "deviceSamples"],
   "properties": {
     "sessionId": { "type": "string" },
+    "source": { "enum": ["simulation", "sensor"] },
+    "note": { "type": "string" },
     "startedAtMs": { "type": "integer" },
-    "deviceSamples": { "type": "array" },
-    "healthSamples": { "type": "array" },
+    "observationStartedAtMs": { "type": ["integer", "null"] },
+    "endedAtMs": { "type": ["integer", "null"] },
+    "baselineSkinTemperatureC": { "type": ["number", "null"] },
+    "deviceSamples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["recordedAtMs", "phase"],
+        "properties": {
+          "recordedAtMs": { "type": "integer" },
+          "deviceTimestampMs": { "type": ["integer", "null"] },
+          "phase": { "enum": ["baseline", "observation"] },
+          "skinTemperatureC": { "type": ["number", "null"] },
+          "ambientTemperatureC": { "type": ["number", "null"] },
+          "sensorQuality": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "healthSamples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "capturedAtMs": { "type": "integer" },
+          "source": { "type": "string" },
+          "heartRateBpm": { "type": ["number", "null"] },
+          "heartRateRecordedAtMs": { "type": ["integer", "null"] },
+          "heartRateSource": { "type": ["string", "null"] },
+          "stepCount": { "type": ["number", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "baselineSampleCount": { "type": "integer" },
+        "observationSampleCount": { "type": "integer" },
+        "baselineSkinTemperatureC": { "type": ["number", "null"] },
+        "latestDeltaSkinTemperatureC": { "type": ["number", "null"] },
+        "peakDeltaSkinTemperatureC": { "type": ["number", "null"] },
+        "temperatureAreaCelsiusSeconds": { "type": ["number", "null"] },
+        "timeToPeakSeconds": { "type": ["number", "null"] },
+        "averageSensorQuality": { "type": ["number", "null"] },
+        "durationSeconds": { "type": ["number", "null"] }
+      },
+      "additionalProperties": true
+    },
     "label": { "enum": ["no_meal", "small", "moderate", "large"] }
   },
   "additionalProperties": true
