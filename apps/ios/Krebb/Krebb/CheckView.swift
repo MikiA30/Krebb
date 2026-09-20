@@ -8,6 +8,7 @@ struct CheckView: View {
     @State private var showsSensors = false
     @State private var note = ""
     @State private var justFinished = false
+    @FocusState private var noteIsFocused: Bool
 
     private var title: String {
         guard let active = sessions.active else { return justFinished ? "A check, complete." : "A moment to settle." }
@@ -30,14 +31,19 @@ struct CheckView: View {
                     if active.stage == .baseline {
                         TextField("Meal or observation note (optional)", text: $note, axis: .vertical)
                             .textFieldStyle(.roundedBorder)
+                            .focused($noteIsFocused)
+                            .submitLabel(.done)
+                            .onSubmit { noteIsFocused = false }
                             .accessibilityIdentifier("sessionNote")
                     }
                     Button(active.stage == .baseline ? "Begin observation" : "Finish and save") {
+                        noteIsFocused = false
                         if active.stage == .baseline {
                             sessions.beginObservation(note: note)
                         } else {
                             sessions.attachHealth(healthContext.snapshot())
                             justFinished = sessions.finish()
+                            if justFinished { note = "" }
                         }
                     }
                     .buttonStyle(.glassProminent)
@@ -84,8 +90,19 @@ struct CheckView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
         .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext, sensorConnection: sensorConnection) }
-        .onAppear { note = sessions.active?.note ?? "" }
+        .onAppear { syncNoteFromActiveSession() }
+        .onChange(of: sessions.active?.id) { _, _ in syncNoteFromActiveSession() }
+        .onChange(of: sessions.active?.stage) { _, _ in syncNoteFromActiveSession() }
         .onChange(of: note) { _, value in sessions.updateNote(value) }
+    }
+
+    private func syncNoteFromActiveSession() {
+        guard let active = sessions.active else {
+            note = ""
+            noteIsFocused = false
+            return
+        }
+        note = active.note
     }
 
     private var activeModeLabel: String {

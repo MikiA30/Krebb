@@ -85,7 +85,7 @@ struct SensorSheet: View {
                             )
                         }
                     } else {
-                        Text("Krebb will read available Health samples that your paired Apple Watch has already synchronized to this iPhone.")
+                        Text("Krebb reads Health samples that your paired Apple Watch has synchronized to this iPhone. iOS may ask again after reinstalling the app or changing Health settings.")
                             .foregroundStyle(.secondary)
                     }
                     Button(healthContext.status.actionTitle) {
