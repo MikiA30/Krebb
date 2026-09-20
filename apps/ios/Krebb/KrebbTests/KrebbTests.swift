@@ -243,4 +243,11 @@ struct KrebbTests {
         #expect(insight.calibrationNote.contains("personal calibration point"))
     }
 
+
+    @Test @MainActor func openAICoachResponseDecodesOutputText() throws {
+        let data = Data(#"{"output_text":"- Krebb observed a high response."}"#.utf8)
+        let decoded = try JSONDecoder().decode(OpenAICoachResponse.self, from: data)
+        #expect(decoded.text == "- Krebb observed a high response.")
+    }
+
 }

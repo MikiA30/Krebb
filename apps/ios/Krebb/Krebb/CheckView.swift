@@ -474,6 +474,7 @@ struct SessionDetailView: View {
                 SessionReadout(session: session)
                 FeatureSummaryView(summary: session.featureSummary)
                 KrebbCoachCard(session: session)
+                OpenAICoachCard(session: session)
 #if DEBUG
                 DisclosureGroup("Developer export", isExpanded: $showsDeveloperExport) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -537,6 +538,101 @@ struct KrebbCoachCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
         .accessibilityIdentifier("krebbCoachCard")
+    }
+}
+
+struct OpenAICoachCard: View {
+    let session: MeasurementSession
+    @AppStorage("openAIAPIKey") private var storedAPIKey = ""
+    @State private var apiKeyInput = ""
+    @State private var coachText = ""
+    @State private var errorMessage = ""
+    @State private var isGenerating = false
+    @State private var showsKeyEditor = false
+
+    private var hasKey: Bool { !storedAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("AI Coach", systemImage: "sparkles.rectangle.stack")
+                    .font(.headline)
+                    .foregroundStyle(KrebbPalette.blush)
+                Spacer()
+                Button(hasKey ? "Update key" : "Add key") {
+                    apiKeyInput = storedAPIKey
+                    showsKeyEditor = true
+                }
+                .font(.caption.weight(.semibold))
+            }
+            Text("Generate a judge-friendly explanation using the OpenAI API. The key is stored only on this iPhone for the demo.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if !coachText.isEmpty {
+                Text(coachText)
+                    .font(.subheadline)
+                    .textSelection(.enabled)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(KrebbPalette.raisedSurface, in: RoundedRectangle(cornerRadius: 12))
+            }
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            Button(isGenerating ? "Generating..." : "Generate AI coach note", systemImage: "wand.and.stars") {
+                Task { await generate() }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isGenerating || !hasKey)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
+        .sheet(isPresented: $showsKeyEditor) {
+            NavigationStack {
+                Form {
+                    Section("OpenAI API key") {
+                        SecureField("sk-...", text: $apiKeyInput)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    Section {
+                        Text("For the hackathon demo only. The key is saved in this app's local settings and is not committed to GitHub.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .navigationTitle("AI Coach")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showsKeyEditor = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            storedAPIKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            showsKeyEditor = false
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("openAICoachCard")
+    }
+
+    @MainActor
+    private func generate() async {
+        let key = storedAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+        isGenerating = true
+        errorMessage = ""
+        do {
+            coachText = try await OpenAICoachService.generateInsight(for: session, apiKey: key)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isGenerating = false
     }
 }
 
