@@ -43,8 +43,11 @@ final class KrebbUITests: XCTestCase {
         let enabled = NSPredicate(format: "enabled == true")
         expectation(for: enabled, evaluatedWith: app.buttons["advanceCheck"])
         waitForExpectations(timeout: 10)
-        app.buttons["advanceCheck"].tap()
+        let note = app.textFields["sessionNote"]
+        note.tap()
+        note.typeText("Breakfast\n")
         XCTAssertTrue(app.staticTexts["Follow the change."].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
         capture("Check — sample observation", app: app)
         expectation(for: enabled, evaluatedWith: app.buttons["advanceCheck"])
         waitForExpectations(timeout: 10)

@@ -159,6 +159,13 @@ final class SessionStore: ObservableObject {
         _ = commit(next)
     }
 
+    @discardableResult
+    func discardDraft() -> Bool {
+        var next = archive
+        next.draft = nil
+        return commit(next)
+    }
+
     func updateNote(_ note: String) {
         guard var draft = active, draft.note != note else { return }
         draft.note = note

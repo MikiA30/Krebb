@@ -8,6 +8,7 @@ struct CheckView: View {
     @State private var showsSensors = false
     @State private var note = ""
     @State private var justFinished = false
+    @State private var showsDiscardConfirmation = false
     @FocusState private var noteIsFocused: Bool
 
     private var title: String {
@@ -29,17 +30,17 @@ struct CheckView: View {
                         .foregroundStyle(.secondary)
                     SessionReadout(session: active)
                     if active.stage == .baseline {
-                        TextField("Meal or observation note (optional)", text: $note, axis: .vertical)
+                        TextField("Meal or observation note (optional)", text: $note)
                             .textFieldStyle(.roundedBorder)
                             .focused($noteIsFocused)
                             .submitLabel(.done)
-                            .onSubmit { noteIsFocused = false }
+                            .onSubmit { beginObservation() }
                             .accessibilityIdentifier("sessionNote")
                     }
                     Button(active.stage == .baseline ? "Begin observation" : "Finish and save") {
                         noteIsFocused = false
                         if active.stage == .baseline {
-                            sessions.beginObservation(note: note)
+                            beginObservation()
                         } else {
                             sessions.attachHealth(healthContext.snapshot())
                             justFinished = sessions.finish()
@@ -47,12 +48,16 @@ struct CheckView: View {
                         }
                     }
                     .buttonStyle(.glassProminent)
-                    .disabled(active.stage == .baseline ? active.readings.count < 3 : !hasObservation(active))
+                    .disabled(active.stage == .baseline ? !canBeginObservation : !hasObservation(active))
                     .accessibilityIdentifier("advanceCheck")
                     Button("Attach latest Health reading", systemImage: "heart") {
                         sessions.attachHealth(healthContext.snapshot())
                     }
                     .disabled(healthContext.latestHeartRate == nil && healthContext.latestStepCount == nil)
+                    Button("Discard check", role: .destructive) {
+                        noteIsFocused = false
+                        showsDiscardConfirmation = true
+                    }
                     if !active.isSimulated {
                         Text(sensorConnection.state.label)
                             .font(.footnote).foregroundStyle(.secondary)
@@ -90,6 +95,16 @@ struct CheckView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
         .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext, sensorConnection: sensorConnection) }
+        .confirmationDialog("Discard this unfinished check?", isPresented: $showsDiscardConfirmation, titleVisibility: .visible) {
+            Button("Discard check", role: .destructive) {
+                if sessions.discardDraft() {
+                    note = ""
+                    justFinished = false
+                }
+            }
+        } message: {
+            Text("This removes the current note and readings. Your saved Journal checks are kept.")
+        }
         .onAppear { syncNoteFromActiveSession() }
         .onChange(of: sessions.active?.id) { _, _ in syncNoteFromActiveSession() }
         .onChange(of: sessions.active?.stage) { _, _ in syncNoteFromActiveSession() }
@@ -103,6 +118,17 @@ struct CheckView: View {
             return
         }
         note = active.note
+    }
+
+    private var canBeginObservation: Bool {
+        guard let active = sessions.active, active.stage == .baseline else { return false }
+        return active.readings.filter { $0.skinTemperatureC != nil }.count >= 3
+    }
+
+    private func beginObservation() {
+        noteIsFocused = false
+        guard canBeginObservation else { return }
+        sessions.beginObservation(note: note)
     }
 
     private var activeModeLabel: String {

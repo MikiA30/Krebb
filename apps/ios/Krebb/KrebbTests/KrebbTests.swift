@@ -43,6 +43,14 @@ struct KrebbTests {
         #expect(session.isSimulated)
         #expect(session.healthSnapshots.count == 1)
         #expect(session.healthSnapshots.first?.heartRate?.timestamp == heart.timestamp)
+        saved.startSimulation(at: start.addingTimeInterval(10))
+        saved.updateNote("Breakfast")
+        #expect(saved.discardDraft())
+        let afterDiscard = SessionStore(directory: directory)
+        #expect(afterDiscard.active == nil)
+        #expect(afterDiscard.completed.count == 1)
+        afterDiscard.startSimulation(at: start.addingTimeInterval(11))
+        #expect(afterDiscard.active?.note == "")
     }
 
     @Test @MainActor func missingAndInvalidSamplesDoNotBecomeBaseline() throws {
