@@ -97,7 +97,7 @@ struct CheckView: View {
             }
             .padding(24)
         }
-        .background(KrebbPalette.canvas)
+        .background(KrebbBackground())
         .navigationTitle("Check")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
@@ -197,7 +197,7 @@ struct CheckView: View {
             }
         }
         .padding(16)
-        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 18))
+        .krebbPanel(cornerRadius: 22, hot: sensorConnection.packetCount > 0)
     }
 
     @ViewBuilder
@@ -292,7 +292,7 @@ struct SessionReadout: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(18)
-        .background(KrebbPalette.raisedSurface, in: RoundedRectangle(cornerRadius: 20))
+        .krebbPanel(cornerRadius: 26, hot: !session.isSimulated)
     }
 
     private func temperature(_ value: Double) -> String {
@@ -350,7 +350,7 @@ struct BaselineGuidanceView: View {
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .padding(16)
-        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
+        .krebbPanel(cornerRadius: 20, hot: canBeginObservation)
     }
 }
 
@@ -411,7 +411,53 @@ struct SessionChart: View {
             }
         }
         .chartYScale(domain: .automatic(includesZero: false))
+        .chartPlotStyle { plotArea in
+            plotArea
+                .background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 14))
+        }
         .accessibilityLabel(session.isSimulated ? "Recorded simulated skin temperatures" : "Recorded skin temperatures")
+    }
+}
+
+struct JournalRow: View {
+    let session: MeasurementSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label(session.isSimulated ? "Simulation" : "Live sensor",
+                      systemImage: session.isSimulated ? "play.circle" : "sensor.tag.radiowaves.forward.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(KrebbPalette.blush)
+                Spacer()
+                Text(session.startedAt.formatted(date: .omitted, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(session.title)
+                .font(.title2.weight(.semibold))
+                .lineLimit(2)
+            HStack(spacing: 14) {
+                miniMetric("Samples", "\(session.readings.count)")
+                if let delta = session.latestDelta {
+                    miniMetric("Change", "\(delta.formatted(.number.sign(strategy: .always()).precision(.fractionLength(2)))) °C")
+                }
+                miniMetric("Health", "\(session.healthSnapshots.count)")
+            }
+        }
+        .padding(18)
+        .krebbPanel(cornerRadius: 24, hot: !session.isSimulated)
+    }
+
+    private func miniMetric(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption.weight(.semibold).monospacedDigit())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -429,26 +475,18 @@ struct JournalView: View {
                 NavigationLink {
                     SessionDetailView(session: session)
                 } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(session.title).font(.headline)
-                        Text(session.isSimulated ? "Simulation check" : "Sensor check")
-                            .font(.caption).foregroundStyle(KrebbPalette.blush)
-                        Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        Text("\(session.readings.count) temperature samples · \(session.healthSnapshots.count) Health snapshots")
-                            .font(.caption).foregroundStyle(KrebbPalette.blush)
-                    }
-                    .padding(.vertical, 8)
+                    JournalRow(session: session)
                 }
                 .accessibilityIdentifier("savedSession")
-                .listRowBackground(KrebbPalette.surface)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
             .onDelete { offsets in
                 sessions.deleteCompletedSessions(at: offsets)
             }
         }
         .scrollContentBackground(.hidden)
-        .background(KrebbPalette.canvas)
+        .background(KrebbBackground())
         .navigationTitle("Journal")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
@@ -506,7 +544,7 @@ struct SessionDetailView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding(24)
         }
-        .background(KrebbPalette.canvas)
+        .background(KrebbBackground())
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -76,7 +76,7 @@ struct TodayView: View {
             .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(KrebbPalette.canvas)
+        .background(KrebbBackground())
         .navigationTitle("Today")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
@@ -114,6 +114,8 @@ struct TodayView: View {
             .foregroundStyle(.secondary)
             .padding(.top, 8)
         }
+        .padding(22)
+        .krebbPanel(cornerRadius: 28, hot: true)
     }
 
     private var temperatures: some View {
@@ -128,7 +130,7 @@ struct TodayView: View {
             temperatureRow("Room", icon: "sun.max", value: "23.6", detail: "Ambient reference", color: KrebbPalette.blush)
         }
         .padding(22)
-        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 26))
+        .krebbPanel(cornerRadius: 26)
     }
 
     private func temperatureRow(_ title: String, icon: String, value: String, detail: String, color: Color) -> some View {
@@ -160,19 +162,32 @@ struct TodaySessionHeader: View {
                     .foregroundStyle(.secondary)
             }
             Text(session.title)
-                .font(.largeTitle.weight(.semibold))
+                .font(.system(size: 42, weight: .bold, design: .rounded))
                 .lineLimit(2)
+                .minimumScaleFactor(0.72)
             Text(session.stage == .complete ? "Saved response" : "Recording in progress")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.white.opacity(0.72))
         }
-        .padding(20)
+        .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
         .background(
-            LinearGradient(colors: [KrebbPalette.wine, KrebbPalette.surface],
+            LinearGradient(colors: [KrebbPalette.wine, KrebbPalette.raisedSurface, KrebbPalette.surface],
                            startPoint: .topLeading,
                            endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 24)
+            in: RoundedRectangle(cornerRadius: 34)
         )
+        .overlay(alignment: .bottomTrailing) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 86, weight: .light))
+                .foregroundStyle(KrebbPalette.coral.opacity(0.16))
+                .padding(24)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 34)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
+        .shadow(color: KrebbPalette.coral.opacity(0.24), radius: 30, y: 18)
     }
 }
 
@@ -250,7 +265,7 @@ struct ResponseExplainer: View {
             }
             .padding(24)
         }
-        .background(KrebbPalette.canvas)
+        .background(KrebbBackground())
         .navigationTitle("About the response")
         .navigationBarTitleDisplayMode(.inline)
     }

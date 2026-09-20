@@ -7,6 +7,54 @@ enum KrebbPalette {
     static let coral = Color(red: 1, green: 0.30, blue: 0.38)
     static let blush = Color(red: 1, green: 0.65, blue: 0.67)
     static let wine = Color(red: 0.34, green: 0.035, blue: 0.075)
+    static let ember = Color(red: 1, green: 0.45, blue: 0.12)
+}
+
+struct KrebbBackground: View {
+    var body: some View {
+        ZStack {
+            KrebbPalette.canvas
+            LinearGradient(colors: [
+                KrebbPalette.wine.opacity(0.85),
+                KrebbPalette.canvas.opacity(0.94),
+                KrebbPalette.canvas
+            ], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [
+                KrebbPalette.coral.opacity(0.18),
+                .clear,
+                KrebbPalette.ember.opacity(0.12)
+            ], startPoint: .topTrailing, endPoint: .bottomLeading)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct KrebbPanelBackground: ViewModifier {
+    var cornerRadius: CGFloat = 24
+    var hot: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                LinearGradient(colors: hot
+                               ? [KrebbPalette.wine.opacity(0.98), KrebbPalette.raisedSurface]
+                               : [KrebbPalette.raisedSurface, KrebbPalette.surface],
+                               startPoint: .topLeading,
+                               endPoint: .bottomTrailing),
+                in: RoundedRectangle(cornerRadius: cornerRadius)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(.white.opacity(hot ? 0.14 : 0.08), lineWidth: 1)
+            }
+            .shadow(color: KrebbPalette.coral.opacity(hot ? 0.22 : 0.08), radius: hot ? 28 : 14, y: hot ? 16 : 8)
+    }
+}
+
+extension View {
+    func krebbPanel(cornerRadius: CGFloat = 24, hot: Bool = false) -> some View {
+        modifier(KrebbPanelBackground(cornerRadius: cornerRadius, hot: hot))
+    }
 }
 
 struct SampleLabel: View {
