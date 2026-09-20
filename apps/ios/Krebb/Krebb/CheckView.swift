@@ -25,19 +25,28 @@ struct CheckView: View {
                     .accessibilityIdentifier("checkPhaseTitle")
                 if let active = sessions.active {
                     Text(active.stage == .baseline
-                         ? "Collect a short baseline, then label your observation. Three samples unlock the next step."
+                         ? "Hold still while Krebb collects three steady readings. Then name what you are observing."
                          : "The curve compares readings with your saved baseline. Finish when you’re ready.")
                         .foregroundStyle(.secondary)
+                    SessionStatusBadge(session: active)
                     SessionReadout(session: active)
                     if active.stage == .baseline {
-                        TextField("Meal or observation note (optional)", text: $note)
-                            .textFieldStyle(.roundedBorder)
-                            .focused($noteIsFocused)
-                            .submitLabel(.done)
-                            .onSubmit { beginObservation() }
-                            .accessibilityIdentifier("sessionNote")
+                        BaselineGuidanceView(validSamples: validBaselineSamples(active),
+                                             canBeginObservation: canBeginObservation)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("What are you observing?")
+                                .font(.headline)
+                            TextField("Breakfast, coffee, walk, no meal...", text: $note)
+                                .textFieldStyle(.roundedBorder)
+                                .focused($noteIsFocused)
+                                .submitLabel(.done)
+                                .onSubmit { beginObservation() }
+                                .accessibilityIdentifier("sessionNote")
+                            Text("This label becomes the saved Journal title.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }
-                    Button(active.stage == .baseline ? "Begin observation" : "Finish and save") {
+                    Button(primaryActionTitle(active)) {
                         noteIsFocused = false
                         if active.stage == .baseline {
                             beginObservation()
@@ -74,18 +83,12 @@ struct CheckView: View {
                 } else {
                     Text(justFinished
                          ? "Saved on this iPhone. Open Journal to review your check and any attached Health context."
+                         : sensorConnection.packetCount > 0
+                         ? "Live packets are ready. Start a sensor check, or use simulation only as a fallback."
                          : "Connect Krebb One when the ESP32 is powered, or run the simulation if hardware is still being checked.")
                         .foregroundStyle(.secondary)
                     sensorControls
-                    Button(justFinished ? "Start another simulation" : "Start simulation") {
-                        justFinished = false
-                        note = ""
-                        sessions.startSimulation()
-                        sessions.simulateTick()
-                        sessions.attachHealth(healthContext.snapshot())
-                    }
-                    .buttonStyle(.glassProminent)
-                    .accessibilityIdentifier("advanceCheck")
+                    simulationButton
                 }
                 if let error = sessions.errorMessage {
                     Text(error).foregroundStyle(.red).accessibilityIdentifier("sessionError")
@@ -125,13 +128,24 @@ struct CheckView: View {
 
     private var canBeginObservation: Bool {
         guard let active = sessions.active, active.stage == .baseline else { return false }
-        return active.readings.filter { $0.skinTemperatureC != nil }.count >= 3
+        return validBaselineSamples(active) >= 3
     }
 
     private func beginObservation() {
         noteIsFocused = false
         guard canBeginObservation else { return }
         sessions.beginObservation(note: note)
+    }
+
+    private func validBaselineSamples(_ session: MeasurementSession) -> Int {
+        guard session.stage == .baseline else { return 0 }
+        return session.readings.filter { $0.skinTemperatureC != nil }.count
+    }
+
+    private func primaryActionTitle(_ session: MeasurementSession) -> String {
+        if session.stage == .observing { return "Finish and save" }
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedNote.isEmpty ? "Begin observation" : "Begin observing \(trimmedNote)"
     }
 
     private var activeModeLabel: String {
@@ -183,6 +197,28 @@ struct CheckView: View {
         }
         .padding(16)
         .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    @ViewBuilder
+    private var simulationButton: some View {
+        let title = justFinished ? "Start another simulation" : "Start simulation"
+        if sensorConnection.packetCount > 0 {
+            Button(title, systemImage: "play.circle") { startSimulation() }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("advanceCheck")
+        } else {
+            Button(title, systemImage: "play.circle") { startSimulation() }
+                .buttonStyle(.glassProminent)
+                .accessibilityIdentifier("advanceCheck")
+        }
+    }
+
+    private func startSimulation() {
+        justFinished = false
+        note = ""
+        sessions.startSimulation()
+        sessions.simulateTick()
+        sessions.attachHealth(healthContext.snapshot())
     }
 
     private var sensorActionTitle: String {
@@ -252,6 +288,49 @@ struct SessionReadout: View {
     }
 }
 
+struct SessionStatusBadge: View {
+    let session: MeasurementSession
+
+    var body: some View {
+        Label(session.isSimulated ? "Simulation check" : "Live sensor check",
+              systemImage: session.isSimulated ? "play.circle" : "sensor.tag.radiowaves.forward.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(session.isSimulated ? .secondary : KrebbPalette.blush)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background(KrebbPalette.surface, in: Capsule())
+            .accessibilityIdentifier(session.isSimulated ? "simulationBadge" : "liveSensorBadge")
+    }
+}
+
+struct BaselineGuidanceView: View {
+    let validSamples: Int
+    let canBeginObservation: Bool
+
+    private var remaining: Int { max(0, 3 - validSamples) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Hold still for 3 readings", systemImage: canBeginObservation ? "checkmark.circle.fill" : "hand.raised")
+                    .font(.headline)
+                Spacer()
+                Text("\(min(validSamples, 3))/3")
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(canBeginObservation ? KrebbPalette.blush : .secondary)
+            }
+            ProgressView(value: min(Double(validSamples), 3), total: 3)
+                .tint(KrebbPalette.coral)
+            Text(canBeginObservation
+                 ? "Baseline is ready. Name the food or event, then begin observation."
+                 : "\(remaining) more steady \(remaining == 1 ? "reading" : "readings") needed before observation.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
 struct SessionChart: View {
     let session: MeasurementSession
 
@@ -275,9 +354,13 @@ struct SessionChart: View {
                     LineMark(x: .value("Time", point.reading.recordedAt), y: .value("Skin °C", skin),
                              series: .value("Segment", point.segment))
                         .foregroundStyle(KrebbPalette.coral)
-                    PointMark(x: .value("Time", point.reading.recordedAt), y: .value("Skin °C", skin))
-                        .foregroundStyle(KrebbPalette.coral).symbolSize(8)
+                        .interpolationMethod(.catmullRom)
                 }
+            }
+            if let latest = session.readings.last, let skin = latest.skinTemperatureC {
+                PointMark(x: .value("Latest time", latest.recordedAt), y: .value("Latest skin °C", skin))
+                    .foregroundStyle(KrebbPalette.blush)
+                    .symbolSize(45)
             }
             if let start = session.observationStartedAt {
                 RuleMark(x: .value("Observation", start))
