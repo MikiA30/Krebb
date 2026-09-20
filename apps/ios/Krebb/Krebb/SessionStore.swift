@@ -306,6 +306,16 @@ final class SessionStore: ObservableObject {
         return commit(next)
     }
 
+    @discardableResult
+    func deleteCompletedSessions(at offsets: IndexSet) -> Bool {
+        guard !offsets.isEmpty else { return true }
+        var next = archive
+        for index in offsets.sorted(by: >) where next.completed.indices.contains(index) {
+            next.completed.remove(at: index)
+        }
+        return commit(next)
+    }
+
     func updateNote(_ note: String) {
         guard var draft = active, draft.note != note else { return }
         draft.note = note

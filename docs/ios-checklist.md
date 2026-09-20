@@ -17,6 +17,7 @@ Status date: 2026-09-20
 - Baseline now guides the user to hold still for 3 readings before observation.
 - The food/event label step is explicit before observation starts.
 - Real-session charts show a cleaner trend with only the latest sample highlighted.
+- Saved Journal entries can be deleted with native swipe-to-delete/Edit behavior.
 
 ## Next before ML
 

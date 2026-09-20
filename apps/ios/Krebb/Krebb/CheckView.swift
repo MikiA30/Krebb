@@ -401,11 +401,19 @@ struct JournalView: View {
                 .accessibilityIdentifier("savedSession")
                 .listRowBackground(KrebbPalette.surface)
             }
+            .onDelete { offsets in
+                sessions.deleteCompletedSessions(at: offsets)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(KrebbPalette.canvas)
         .navigationTitle("Journal")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if !sessions.completed.isEmpty {
+                EditButton()
+            }
+        }
     }
 }
 

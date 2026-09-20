@@ -192,4 +192,36 @@ struct KrebbTests {
         #expect(session.exportJSONString.contains("\"note\" : \"Breakfast\""))
     }
 
+    @Test @MainActor func deletesCompletedSessionsWithoutTouchingDraft() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let start = Date(timeIntervalSince1970: 1_760_000_000)
+        let store = SessionStore(directory: directory)
+
+        func saveSession(note: String, offset: TimeInterval) {
+            store.startSimulation(at: start.addingTimeInterval(offset))
+            for index in 0..<3 {
+                store.record(SessionReading(recordedAt: start.addingTimeInterval(offset + Double(index)),
+                                            skinTemperatureC: 33, ambientTemperatureC: 24, sensorQuality: 1))
+            }
+            store.beginObservation(note: note, at: start.addingTimeInterval(offset + 3))
+            store.record(SessionReading(recordedAt: start.addingTimeInterval(offset + 4),
+                                        skinTemperatureC: 33.3, ambientTemperatureC: 24, sensorQuality: 1))
+            #expect(store.finish(at: start.addingTimeInterval(offset + 5)))
+        }
+
+        saveSession(note: "Breakfast", offset: 0)
+        saveSession(note: "Coffee", offset: 10)
+        store.startSimulation(at: start.addingTimeInterval(20))
+
+        #expect(store.completed.map(\.title) == ["Coffee", "Breakfast"])
+        #expect(store.deleteCompletedSessions(at: IndexSet(integer: 0)))
+        #expect(store.completed.map(\.title) == ["Breakfast"])
+        #expect(store.active?.stage == .baseline)
+
+        let restored = SessionStore(directory: directory)
+        #expect(restored.completed.map(\.title) == ["Breakfast"])
+        #expect(restored.active?.stage == .baseline)
+    }
+
 }
