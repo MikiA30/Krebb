@@ -1,0 +1,12 @@
+{
+  "name": "krebb_core",
+  "version": "0.1.0",
+  "description": "Krebb One pure-C++ core: packet serialisation, sensorQuality heuristic, ambient freshness rule and clock. No Arduino headers, so it builds for both esp32s3 and native unit tests.",
+  "keywords": ["krebb", "ble", "sensor"],
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "srcDir": "src"
+  }
+}

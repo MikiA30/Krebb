@@ -6,9 +6,20 @@ enum SessionStage: String, Codable { case baseline, observing, complete }
 struct SessionReading: Codable, Identifiable, Equatable {
     var id = UUID()
     let recordedAt: Date
+    var deviceTimestampMs: Int64?
     let skinTemperatureC: Double?
     let ambientTemperatureC: Double?
     let sensorQuality: Double?
+
+    init(id: UUID = UUID(), recordedAt: Date, deviceTimestampMs: Int64? = nil,
+         skinTemperatureC: Double?, ambientTemperatureC: Double?, sensorQuality: Double?) {
+        self.id = id
+        self.recordedAt = recordedAt
+        self.deviceTimestampMs = deviceTimestampMs
+        self.skinTemperatureC = skinTemperatureC
+        self.ambientTemperatureC = ambientTemperatureC
+        self.sensorQuality = sensorQuality
+    }
 }
 
 struct MeasurementSession: Codable, Identifiable {
@@ -105,6 +116,13 @@ final class SessionStore: ObservableObject {
         guard active == nil else { return }
         var next = archive
         next.draft = MeasurementSession(startedAt: date, isSimulated: true)
+        _ = commit(next)
+    }
+
+    func startSensorSession(at date: Date = .now) {
+        guard active == nil else { return }
+        var next = archive
+        next.draft = MeasurementSession(startedAt: date, isSimulated: false)
         _ = commit(next)
     }
 

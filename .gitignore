@@ -17,11 +17,18 @@ Secrets.swift
 
 # PlatformIO / ESP32 build output
 firmware/esp32/.pio/
+.pio/
 
 # Python tools
 __pycache__/
 *.py[cod]
+*.pyc
 .venv/
+.pytest_cache/
+
+# Recorded sensor sessions (raw participant data: never committed)
+firmware/esp32/tools/recordings/
+recordings/
 
 # Private experiment data and trained model artifacts
 ml/data/raw/*

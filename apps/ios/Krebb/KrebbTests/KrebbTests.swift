@@ -111,4 +111,29 @@ struct KrebbTests {
         #expect(snapshot.stepCount == 18)
     }
 
+    @Test @MainActor func sensorPacketRecordsWithPhoneArrivalTime() throws {
+        let json = Data("""
+        {"timestampMs":1760000000000,"skinTemperatureC":33.42,"ambientTemperatureC":24.0,"sensorQuality":0.91}
+        """.utf8)
+        let packet = try JSONDecoder().decode(SensorMeasurementPacket.self, from: json)
+        #expect(packet.timestampMs == 1_760_000_000_000)
+        #expect(packet.skinTemperatureC == 33.42)
+        #expect(packet.ambientTemperatureC == 24.0)
+        #expect(packet.sensorQuality == 0.91)
+
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let arrival = Date(timeIntervalSince1970: 1_760_000_123)
+        let store = SessionStore(directory: directory)
+        store.startSensorSession(at: arrival)
+        store.record(SessionReading(recordedAt: arrival,
+                                    deviceTimestampMs: packet.timestampMs,
+                                    skinTemperatureC: packet.skinTemperatureC,
+                                    ambientTemperatureC: packet.ambientTemperatureC,
+                                    sensorQuality: packet.sensorQuality))
+        #expect(store.active?.isSimulated == false)
+        #expect(store.active?.readings.first?.recordedAt == arrival)
+        #expect(store.active?.readings.first?.deviceTimestampMs == packet.timestampMs)
+    }
+
 }

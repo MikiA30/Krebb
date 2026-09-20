@@ -4,6 +4,7 @@ import Charts
 struct CheckView: View {
     @ObservedObject var sessions: SessionStore
     @ObservedObject var healthContext: HealthContextStore
+    @ObservedObject var sensorConnection: SensorConnectionStore
     @State private var showsSensors = false
     @State private var note = ""
     @State private var justFinished = false
@@ -16,14 +17,14 @@ struct CheckView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Label("Simulated temperature", systemImage: "play.circle")
+                Label(activeModeLabel, systemImage: activeModeIcon)
                     .font(.subheadline).foregroundStyle(KrebbPalette.blush)
                 Text(title).font(.largeTitle.weight(.semibold))
                     .accessibilityIdentifier("checkPhaseTitle")
                 if let active = sessions.active {
                     Text(active.stage == .baseline
-                         ? "Collect a short simulated baseline, then label your observation. Three samples unlock the next step."
-                         : "The curve compares simulated readings with your saved baseline. Finish when you’re ready.")
+                         ? "Collect a short baseline, then label your observation. Three samples unlock the next step."
+                         : "The curve compares readings with your saved baseline. Finish when you’re ready.")
                         .foregroundStyle(.secondary)
                     SessionReadout(session: active)
                     if active.stage == .baseline {
@@ -46,15 +47,22 @@ struct CheckView: View {
                         sessions.attachHealth(healthContext.snapshot())
                     }
                     .disabled(healthContext.latestHeartRate == nil && healthContext.latestStepCount == nil)
+                    if !active.isSimulated {
+                        Text(sensorConnection.state.label)
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Text("Health context is optional. Open Sensors to allow access or refresh readings. Attached values retain their original measurement times.")
                         .font(.footnote).foregroundStyle(.secondary)
-                    Text("This draft saves after each sample. Simulation runs while the app is active; time away leaves a gap in the recording.")
+                    Text(active.isSimulated
+                         ? "This draft saves after each sample. Simulation runs while the app is active; time away leaves a gap in the recording."
+                         : "This draft saves each sensor packet received by the phone. Device timestamp is retained, but the chart uses iPhone arrival time.")
                         .font(.footnote).foregroundStyle(.secondary)
                 } else {
                     Text(justFinished
-                         ? "Saved on this iPhone. Open Journal to review your simulation and any attached Health context."
-                         : "Exercise the full recording flow while your sensor is being built. Temperature readings are generated; any Health readings you attach come from Apple Health.")
+                         ? "Saved on this iPhone. Open Journal to review your check and any attached Health context."
+                         : "Connect Krebb One when the ESP32 is powered, or run the simulation if hardware is still being checked.")
                         .foregroundStyle(.secondary)
+                    sensorControls
                     Button(justFinished ? "Start another simulation" : "Start simulation") {
                         justFinished = false
                         note = ""
@@ -75,9 +83,53 @@ struct CheckView: View {
         .navigationTitle("Check")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
-        .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext) }
+        .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext, sensorConnection: sensorConnection) }
         .onAppear { note = sessions.active?.note ?? "" }
         .onChange(of: note) { _, value in sessions.updateNote(value) }
+    }
+
+    private var activeModeLabel: String {
+        guard let active = sessions.active else { return sensorConnection.state.isReceiving ? "Krebb One ready" : "Sensor or simulation" }
+        return active.isSimulated ? "Simulated temperature" : "Krebb One sensor"
+    }
+
+    private var activeModeIcon: String {
+        guard let active = sessions.active else { return sensorConnection.state.isReceiving ? "sensor.tag.radiowaves.forward.fill" : "sensor.tag.radiowaves.forward" }
+        return active.isSimulated ? "play.circle" : "sensor.tag.radiowaves.forward.fill"
+    }
+
+    private var sensorControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LabeledContent("Krebb One", value: sensorConnection.state.label)
+            if sensorConnection.packetCount > 0 {
+                LabeledContent("Packets received", value: "\(sensorConnection.packetCount)")
+            }
+            HStack {
+                Button(sensorConnection.state.isReceiving ? "Start sensor check" : "Scan for Krebb One",
+                       systemImage: sensorConnection.state.isReceiving ? "record.circle" : "antenna.radiowaves.left.and.right") {
+                    if sensorConnection.state.isReceiving {
+                        justFinished = false
+                        note = ""
+                        sessions.startSensorSession()
+                        sessions.attachHealth(healthContext.snapshot())
+                    } else {
+                        sensorConnection.start()
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(sensorConnection.state.isReceiving && sessions.active != nil)
+
+                if !sensorConnection.state.isReceiving {
+                    Button("Sensors", systemImage: "slider.horizontal.3") { showsSensors = true }
+                        .buttonStyle(.bordered)
+                }
+            }
+            if let error = sensorConnection.lastError {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+        }
+        .padding(16)
+        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func hasObservation(_ session: MeasurementSession) -> Bool {

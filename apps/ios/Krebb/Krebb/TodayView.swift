@@ -3,6 +3,7 @@ import Charts
 
 struct TodayView: View {
     @ObservedObject var healthContext: HealthContextStore
+    @ObservedObject var sensorConnection: SensorConnectionStore
     @ObservedObject var sessions: SessionStore
     let startCheck: () -> Void
     @State private var showsSensors = false
@@ -82,7 +83,7 @@ struct TodayView: View {
         .navigationTitle("Today")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
-        .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext) }
+        .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext, sensorConnection: sensorConnection) }
     }
 
     private var signature: some View {

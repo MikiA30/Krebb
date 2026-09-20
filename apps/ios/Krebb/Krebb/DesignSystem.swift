@@ -39,19 +39,36 @@ struct KrebbToolbar: ToolbarContent {
 struct SensorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var healthContext: HealthContextStore
+    @ObservedObject var sensorConnection: SensorConnectionStore
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Label("You’re exploring sample data", systemImage: "play.circle.fill")
+                    Label(sensorConnection.state.isReceiving ? "Krebb One is streaming" : "Sensor setup",
+                          systemImage: sensorConnection.state.isReceiving ? "sensor.tag.radiowaves.forward.fill" : "sensor.tag.radiowaves.forward")
                         .foregroundStyle(KrebbPalette.blush)
-                    Text("Hardware connections will appear here when the sensor integration is ready.")
+                    Text("The app scans for the firmware service UUID, subscribes to the measurement characteristic, and records packets when a sensor check is active.")
                         .foregroundStyle(.secondary)
                 }
                 Section("Your setup") {
-                    LabeledContent("ESP32 + skin sensor", value: "Not connected")
-                    LabeledContent("Ambient temperature", value: "Not connected")
+                    LabeledContent("Krebb One", value: sensorConnection.state.label)
+                    LabeledContent("Packets received", value: "\(sensorConnection.packetCount)")
+                    Button(sensorConnection.state.isReceiving ? "Stop sensor" : "Scan for Krebb One") {
+                        sensorConnection.state.isReceiving ? sensorConnection.stop() : sensorConnection.start()
+                    }
+                    if let measurement = sensorConnection.latestMeasurement {
+                        if let skin = measurement.packet.skinTemperatureC {
+                            LabeledContent("Skin", value: "\(skin.formatted(.number.precision(.fractionLength(2)))) °C")
+                        }
+                        if let ambient = measurement.packet.ambientTemperatureC {
+                            LabeledContent("Room", value: "\(ambient.formatted(.number.precision(.fractionLength(1)))) °C")
+                        }
+                        LabeledContent("Quality", value: measurement.packet.sensorQuality.formatted(.number.precision(.fractionLength(2))))
+                    }
+                    if let error = sensorConnection.lastError {
+                        Text(error).foregroundStyle(.red)
+                    }
                 }
                 Section("Apple Watch context") {
                     LabeledContent("Status", value: healthContext.status.label)
