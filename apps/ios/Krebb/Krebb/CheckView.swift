@@ -61,6 +61,9 @@ struct CheckView: View {
                     if !active.isSimulated {
                         Text(sensorConnection.state.label)
                             .font(.footnote).foregroundStyle(.secondary)
+                    } else if sensorConnection.packetCount > 0 {
+                        Text("Live sensor packets are available. Discard this simulation if you want to start a live BLE check.")
+                            .font(.footnote).foregroundStyle(KrebbPalette.blush)
                     }
                     Text("Health context is optional. Open Sensors to allow access or refresh readings. Attached values retain their original measurement times.")
                         .font(.footnote).foregroundStyle(.secondary)
@@ -154,20 +157,20 @@ struct CheckView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
             HStack {
-                Button(sensorConnection.state.isReceiving ? "Start live sensor check" : "Scan for Krebb One",
-                       systemImage: sensorConnection.state.isReceiving ? "record.circle" : "antenna.radiowaves.left.and.right") {
+                Button(sensorActionTitle, systemImage: sensorActionIcon) {
                     if sensorConnection.packetCount > 0 {
                         justFinished = false
                         note = ""
                         sessions.startSensorSession()
                         sessions.attachHealth(healthContext.snapshot())
+                    } else if sensorConnection.state == .discovered {
+                        sensorConnection.connectToDiscoveredSensor()
                     } else {
                         sensorConnection.start()
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled((sensorConnection.state.isReceiving && sensorConnection.packetCount == 0) ||
-                          (sensorConnection.state.isReceiving && sessions.active != nil))
+                .disabled(sensorActionDisabled)
 
                 if !sensorConnection.state.isReceiving {
                     Button("Sensors", systemImage: "slider.horizontal.3") { showsSensors = true }
@@ -180,6 +183,27 @@ struct CheckView: View {
         }
         .padding(16)
         .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var sensorActionTitle: String {
+        if sensorConnection.packetCount > 0 { return "Start live sensor check" }
+        if sensorConnection.state == .discovered { return "Connect to this Krebb One" }
+        if sensorConnection.state == .connecting || sensorConnection.state == .connected || sensorConnection.state.isReceiving {
+            return "Waiting for packets"
+        }
+        return "Scan for Krebb One"
+    }
+
+    private var sensorActionIcon: String {
+        if sensorConnection.packetCount > 0 { return "record.circle" }
+        if sensorConnection.state == .discovered { return "link" }
+        return "antenna.radiowaves.left.and.right"
+    }
+
+    private var sensorActionDisabled: Bool {
+        if sensorConnection.packetCount > 0 { return sessions.active != nil }
+        if sensorConnection.state == .discovered { return false }
+        return sensorConnection.state == .connecting || sensorConnection.state == .connected || sensorConnection.state.isReceiving
     }
 
     private func hasObservation(_ session: MeasurementSession) -> Bool {

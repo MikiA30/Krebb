@@ -41,6 +41,13 @@ struct SensorSheet: View {
     @ObservedObject var healthContext: HealthContextStore
     @ObservedObject var sensorConnection: SensorConnectionStore
 
+    private var sensorButtonTitle: String {
+        if sensorConnection.state.isReceiving { return "Stop sensor" }
+        if sensorConnection.state == .discovered { return "Connect to this device" }
+        if sensorConnection.state == .connecting || sensorConnection.state == .connected { return "Cancel connection" }
+        return "Scan for Krebb One"
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -57,8 +64,16 @@ struct SensorSheet: View {
                         LabeledContent("Detected device", value: "\(sensor.name) · \(sensor.rssi) dBm")
                     }
                     LabeledContent("Packets received", value: "\(sensorConnection.packetCount)")
-                    Button(sensorConnection.state.isReceiving ? "Stop sensor" : "Scan for Krebb One") {
-                        sensorConnection.state.isReceiving ? sensorConnection.stop() : sensorConnection.start()
+                    Button(sensorButtonTitle) {
+                        if sensorConnection.state.isReceiving ||
+                            sensorConnection.state == .connecting ||
+                            sensorConnection.state == .connected {
+                            sensorConnection.stop()
+                        } else if sensorConnection.state == .discovered {
+                            sensorConnection.connectToDiscoveredSensor()
+                        } else {
+                            sensorConnection.start()
+                        }
                     }
                     if let measurement = sensorConnection.latestMeasurement {
                         LabeledContent("Last packet", value: measurement.receivedAt.formatted(date: .omitted, time: .standard))

@@ -23,6 +23,7 @@ enum SensorConnectionState: Equatable {
     case idle
     case bluetoothUnavailable(String)
     case scanning
+    case discovered
     case connecting
     case connected
     case subscribed
@@ -33,6 +34,7 @@ enum SensorConnectionState: Equatable {
         case .idle: "Ready to scan"
         case .bluetoothUnavailable(let message): message
         case .scanning: "Scanning for Krebb One"
+        case .discovered: "Krebb One found"
         case .connecting: "Connecting"
         case .connected: "Connected"
         case .subscribed: "Receiving sensor packets"
@@ -72,6 +74,13 @@ final class SensorConnectionStore: NSObject, ObservableObject {
         }
     }
 
+    func connectToDiscoveredSensor() {
+        guard let central, let peripheral else { return }
+        lastError = nil
+        state = .connecting
+        central.connect(peripheral)
+    }
+
     func stop() {
         if let peripheral {
             central?.cancelPeripheralConnection(peripheral)
@@ -79,6 +88,8 @@ final class SensorConnectionStore: NSObject, ObservableObject {
         central?.stopScan()
         peripheral = nil
         discoveredSensor = nil
+        latestMeasurement = nil
+        packetCount = 0
         state = .idle
     }
 
@@ -113,9 +124,8 @@ extension SensorConnectionStore: CBCentralManagerDelegate {
                                             rssi: RSSI.intValue)
         self.peripheral = peripheral
         self.peripheral?.delegate = self
-        state = .connecting
         central.stopScan()
-        central.connect(peripheral)
+        state = .discovered
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -126,7 +136,6 @@ extension SensorConnectionStore: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         state = .disconnected(error?.localizedDescription)
         lastError = error?.localizedDescription
-        scanIfReady()
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
