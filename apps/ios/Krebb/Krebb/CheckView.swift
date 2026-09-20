@@ -1,97 +1,73 @@
 import SwiftUI
-
-enum CheckPhase {
-    case ready, baseline, observing, complete
-
-    var title: String {
-        switch self {
-        case .ready: "A moment to settle."
-        case .baseline: "Finding your starting point."
-        case .observing: "Follow the change."
-        case .complete: "A check, complete."
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .ready: "Place the contact sensor, get comfortable, and take a baseline before your meal."
-        case .baseline: "In a real check, this stage collects a stable temperature reference. Preview the next step when you’re ready."
-        case .observing: "The post-meal curve compares each new reading with your baseline and the room temperature."
-        case .complete: "You’ve reached the end of the sample flow. No real measurements were collected or saved."
-        }
-    }
-
-    var action: String {
-        switch self {
-        case .ready: "Try a sample check"
-        case .baseline: "Preview meal observation"
-        case .observing: "Finish sample check"
-        case .complete: "Start again"
-        }
-    }
-
-    var step: Int {
-        switch self {
-        case .ready: 0
-        case .baseline: 1
-        case .observing: 2
-        case .complete: 3
-        }
-    }
-
-    var next: CheckPhase {
-        switch self {
-        case .ready: .baseline
-        case .baseline: .observing
-        case .observing: .complete
-        case .complete: .ready
-        }
-    }
-}
+import Charts
 
 struct CheckView: View {
-    @Binding var phase: CheckPhase
+    @ObservedObject var sessions: SessionStore
     @ObservedObject var healthContext: HealthContextStore
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showsSensors = false
+    @State private var note = ""
+    @State private var justFinished = false
+
+    private var title: String {
+        guard let active = sessions.active else { return justFinished ? "A check, complete." : "A moment to settle." }
+        return active.stage == .baseline ? "Finding your starting point." : "Follow the change."
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                SampleLabel()
-                Image("KrebbMark")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 100, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 26))
-                    .padding(.top, 16)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(phase.title).font(.largeTitle.weight(.semibold))
-                        .contentTransition(.opacity)
-                        .accessibilityIdentifier("checkPhaseTitle")
-                    Text(phase.detail).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                VStack(alignment: .leading, spacing: 24) {
-                    stepRow("Settle & establish baseline", number: 1)
-                    stepRow("Log meal & observe", number: 2)
-                    stepRow("Review the change", number: 3)
-                }
-                .padding(.vertical, 12)
-                Button {
-                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.35)) {
-                        phase = phase.next
+            VStack(alignment: .leading, spacing: 24) {
+                Label("Simulated temperature", systemImage: "play.circle")
+                    .font(.subheadline).foregroundStyle(KrebbPalette.blush)
+                Text(title).font(.largeTitle.weight(.semibold))
+                    .accessibilityIdentifier("checkPhaseTitle")
+                if let active = sessions.active {
+                    Text(active.stage == .baseline
+                         ? "Collect a short simulated baseline, then label your observation. Three samples unlock the next step."
+                         : "The curve compares simulated readings with your saved baseline. Finish when you’re ready.")
+                        .foregroundStyle(.secondary)
+                    SessionReadout(session: active)
+                    if active.stage == .baseline {
+                        TextField("Meal or observation note (optional)", text: $note, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("sessionNote")
                     }
-                } label: {
-                    Text(phase.action).font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                    Button(active.stage == .baseline ? "Begin observation" : "Finish and save") {
+                        if active.stage == .baseline {
+                            sessions.beginObservation(note: note)
+                        } else {
+                            sessions.attachHealth(healthContext.snapshot())
+                            justFinished = sessions.finish()
+                        }
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(active.stage == .baseline ? active.readings.count < 3 : !hasObservation(active))
+                    .accessibilityIdentifier("advanceCheck")
+                    Button("Attach latest Health reading", systemImage: "heart") {
+                        sessions.attachHealth(healthContext.snapshot())
+                    }
+                    .disabled(healthContext.latestHeartRate == nil && healthContext.latestStepCount == nil)
+                    Text("Health context is optional. Open Sensors to allow access or refresh readings. Attached values retain their original measurement times.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text("This draft saves after each sample. Simulation runs while the app is active; time away leaves a gap in the recording.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Text(justFinished
+                         ? "Saved on this iPhone. Open Journal to review your simulation and any attached Health context."
+                         : "Exercise the full recording flow while your sensor is being built. Temperature readings are generated; any Health readings you attach come from Apple Health.")
+                        .foregroundStyle(.secondary)
+                    Button(justFinished ? "Start another simulation" : "Start simulation") {
+                        justFinished = false
+                        note = ""
+                        sessions.startSimulation()
+                        sessions.simulateTick()
+                        sessions.attachHealth(healthContext.snapshot())
+                    }
+                    .buttonStyle(.glassProminent)
+                    .accessibilityIdentifier("advanceCheck")
                 }
-                .buttonStyle(.glassProminent)
-                .accessibilityIdentifier("advanceCheck")
-                Text("Sample mode · no sensor connection required")
-                    .font(.footnote).foregroundStyle(.secondary)
+                if let error = sessions.errorMessage {
+                    Text(error).foregroundStyle(.red).accessibilityIdentifier("sessionError")
+                }
             }
             .padding(24)
         }
@@ -100,55 +76,113 @@ struct CheckView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
         .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext) }
+        .onAppear { note = sessions.active?.note ?? "" }
+        .onChange(of: note) { _, value in sessions.updateNote(value) }
     }
 
-    private func stepRow(_ text: String, number: Int) -> some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle().fill(number <= phase.step ? KrebbPalette.coral : .white.opacity(0.08))
-                if number < phase.step || phase == .complete {
-                    Image(systemName: "checkmark").font(.caption.bold())
-                } else {
-                    Text("\(number)").font(.subheadline.monospacedDigit())
+    private func hasObservation(_ session: MeasurementSession) -> Bool {
+        guard let start = session.observationStartedAt else { return false }
+        return session.readings.contains { $0.recordedAt >= start }
+    }
+}
+
+struct SessionReadout: View {
+    let session: MeasurementSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            LabeledContent("Temperature samples", value: "\(session.readings.count)")
+            if let skin = session.readings.last?.skinTemperatureC {
+                LabeledContent("Skin", value: temperature(skin))
+            }
+            if let ambient = session.readings.last?.ambientTemperatureC {
+                LabeledContent("Room", value: temperature(ambient))
+            }
+            if let baseline = session.baseline {
+                LabeledContent(session.stage == .baseline ? "Baseline so far" : "Baseline", value: temperature(baseline))
+            }
+            if let delta = session.latestDelta {
+                LabeledContent("Change from baseline", value: temperature(delta))
+                    .foregroundStyle(KrebbPalette.blush)
+            }
+            SessionChart(session: session).frame(height: 200)
+            if let reading = session.healthSnapshots.last?.heartRate {
+                LabeledContent("Attached heart rate", value: reading.displayValue)
+                Text("Recorded \(reading.timestamp.formatted(date: .abbreviated, time: .standard)) · \(reading.sourceName ?? "HealthKit")")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Text("\(session.healthSnapshots.count) Health snapshots attached")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func temperature(_ value: Double) -> String {
+        "\(value.formatted(.number.precision(.fractionLength(2)))) °C"
+    }
+}
+
+struct SessionChart: View {
+    let session: MeasurementSession
+
+    private var points: [(reading: SessionReading, segment: Int)] {
+        var segment = 0
+        return session.readings.enumerated().map { index, reading in
+            if index > 0 {
+                let previous = session.readings[index - 1]
+                if reading.recordedAt.timeIntervalSince(previous.recordedAt) > 3 || previous.skinTemperatureC == nil {
+                    segment += 1
                 }
             }
-            .frame(width: 32, height: 32)
-            Text(text).font(.subheadline.weight(number == phase.step ? .semibold : .regular))
-                .foregroundStyle(number <= phase.step ? .primary : .secondary)
+            return (reading, segment)
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    var body: some View {
+        Chart {
+            ForEach(points, id: \.reading.id) { point in
+                if let skin = point.reading.skinTemperatureC {
+                    LineMark(x: .value("Time", point.reading.recordedAt), y: .value("Skin °C", skin),
+                             series: .value("Segment", point.segment))
+                        .foregroundStyle(KrebbPalette.coral)
+                    PointMark(x: .value("Time", point.reading.recordedAt), y: .value("Skin °C", skin))
+                        .foregroundStyle(KrebbPalette.coral).symbolSize(8)
+                }
+            }
+            if let start = session.observationStartedAt {
+                RuleMark(x: .value("Observation", start))
+                    .foregroundStyle(KrebbPalette.blush)
+                    .lineStyle(StrokeStyle(dash: [4]))
+            }
+        }
+        .chartYScale(domain: .automatic(includesZero: false))
+        .accessibilityLabel(session.isSimulated ? "Recorded simulated skin temperatures" : "Recorded skin temperatures")
     }
 }
 
 struct JournalView: View {
+    @ObservedObject var sessions: SessionStore
+
     var body: some View {
         List {
-            Section {
-                VStack(alignment: .leading, spacing: 14) {
-                    SampleLabel()
-                    Text("Your patterns take time.").font(.title2.weight(.semibold))
-                    Text("Completed sensor sessions will live here. Explore an example of what a check could look like.")
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 12)
+            if sessions.completed.isEmpty {
+                ContentUnavailableView("Your first check starts here", systemImage: "book.closed",
+                                       description: Text("Finish a simulation in Check to save and review a session."))
             }
-            .listRowBackground(Color.clear)
-            Section("Explore a sample") {
+            if let error = sessions.errorMessage { Text(error).foregroundStyle(.red) }
+            ForEach(sessions.completed) { session in
                 NavigationLink {
-                    SampleSessionView()
+                    SessionDetailView(session: session)
                 } label: {
-                    HStack(spacing: 16) {
-                        Image(systemName: "waveform.path").font(.title2).foregroundStyle(KrebbPalette.coral)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("After a meal").font(.headline)
-                            Text("12-minute example").font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text("+0.3°").font(.title3.monospacedDigit()).foregroundStyle(KrebbPalette.blush)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(session.title).font(.headline)
+                        Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Text("\(session.readings.count) temperature samples · \(session.healthSnapshots.count) Health snapshots")
+                            .font(.caption).foregroundStyle(KrebbPalette.blush)
                     }
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 8)
                 }
-                .accessibilityIdentifier("sampleSession")
+                .accessibilityIdentifier("savedSession")
                 .listRowBackground(KrebbPalette.surface)
             }
         }
@@ -159,25 +193,23 @@ struct JournalView: View {
     }
 }
 
-private struct SampleSessionView: View {
-    @State private var minute: Int?
+struct SessionDetailView: View {
+    let session: MeasurementSession
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                SampleLabel()
-                Text("A small change, in context.").font(.largeTitle.weight(.semibold))
-                ThermalChart(selectedMinute: $minute).frame(height: 240)
-                LabeledContent("Baseline skin temperature", value: "33.1°C")
-                LabeledContent("Final skin temperature", value: "33.4°C")
-                LabeledContent("Ambient reference", value: "23.6°C")
-                Text("Illustrative data only. This example is not a saved sensor session or a metabolic classification.")
+                Text(session.isSimulated ? "Simulated temperature · saved locally" : "Sensor data · saved locally")
+                    .foregroundStyle(KrebbPalette.blush)
+                Text(session.startedAt.formatted(date: .abbreviated, time: .standard))
+                if !session.note.isEmpty { Text(session.note) }
+                SessionReadout(session: session)
+                Text("Temperature trends are experimental observations, not a metabolic score.")
                     .font(.footnote).foregroundStyle(.secondary)
-            }
-            .padding(24)
+            }.padding(24)
         }
         .background(KrebbPalette.canvas)
-        .navigationTitle("After a meal")
+        .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

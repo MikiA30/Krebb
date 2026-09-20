@@ -3,6 +3,7 @@ import Charts
 
 struct TodayView: View {
     @ObservedObject var healthContext: HealthContextStore
+    @ObservedObject var sessions: SessionStore
     let startCheck: () -> Void
     @State private var showsSensors = false
     @State private var selectedMinute: Int?
@@ -22,14 +23,22 @@ struct TodayView: View {
                         .tracking(1.6)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    SampleLabel()
+                    if sessions.active == nil && sessions.completed.isEmpty { SampleLabel() }
                 }
 
-                signature
+                if let session = sessions.active ?? sessions.completed.first {
+                    Text(session.isSimulated ? "Simulated temperature" : "Sensor recording")
+                        .font(.subheadline).foregroundStyle(KrebbPalette.blush)
+                    Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption).foregroundStyle(.secondary)
+                    SessionReadout(session: session)
+                } else {
+                    signature
+                }
 
                 Button(action: startCheck) {
                     HStack {
-                        Text("Start a check")
+                        Text(sessions.active == nil ? "Start a check" : "Continue check")
                         Spacer()
                         Image(systemName: "arrow.up.right")
                     }
@@ -40,7 +49,7 @@ struct TodayView: View {
                 .buttonStyle(.glassProminent)
                 .accessibilityIdentifier("startCheck")
 
-                temperatures
+                if sessions.active == nil && sessions.completed.isEmpty { temperatures }
 
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Make space for a baseline.")
@@ -61,7 +70,7 @@ struct TodayView: View {
                 }
                 .padding(.top, 6)
 
-                Text("An experimental look at your response. These example readings aren’t a metabolic score.")
+                Text("An experimental look at your response. Temperature trends aren’t a metabolic score.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

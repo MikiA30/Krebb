@@ -18,7 +18,7 @@ struct HealthContextSnapshot: Codable, Equatable, Sendable {
     let stepCount: Double?
 
     /// Store this snapshot with a Krebb session; HealthKit remains the original source.
-    let source: String = "HealthKit"
+    var source: String = "HealthKit"
 }
 
 enum HealthContextStatus: Equatable {
@@ -75,6 +75,8 @@ final class HealthContextStore: ObservableObject {
         do {
             try await healthStore.requestAuthorization(toShare: [], read: [heartRateType, stepCountType])
         } catch {
+            latestHeartRate = nil
+            latestStepCount = nil
             status = .failed(error.localizedDescription)
         }
     }
@@ -103,6 +105,8 @@ final class HealthContextStore: ObservableObject {
             latestStepCount = steps?.quantity.doubleValue(for: .count())
             status = latestHeartRate == nil && latestStepCount == nil ? .noRecentSamples : .available
         } catch {
+            latestHeartRate = nil
+            latestStepCount = nil
             status = .failed(error.localizedDescription)
         }
     }
@@ -110,7 +114,7 @@ final class HealthContextStore: ObservableObject {
     func snapshot() -> HealthContextSnapshot {
         HealthContextSnapshot(
             capturedAt: .now,
-            heartRate: latestHeartRate,
+            heartRate: latestHeartRate.flatMap { Date.now.timeIntervalSince($0.timestamp) <= recentSampleWindow ? $0 : nil },
             stepCount: latestStepCount
         )
     }
