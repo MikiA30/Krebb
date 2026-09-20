@@ -51,6 +51,7 @@ enum CheckPhase {
 
 struct CheckView: View {
     @Binding var phase: CheckPhase
+    @ObservedObject var healthContext: HealthContextStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showsSensors = false
 
@@ -98,7 +99,7 @@ struct CheckView: View {
         .navigationTitle("Check")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
-        .sheet(isPresented: $showsSensors) { SensorSheet() }
+        .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext) }
     }
 
     private func stepRow(_ text: String, number: Int) -> some View {

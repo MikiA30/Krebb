@@ -2,6 +2,7 @@ import SwiftUI
 import Charts
 
 struct TodayView: View {
+    @ObservedObject var healthContext: HealthContextStore
     let startCheck: () -> Void
     @State private var showsSensors = false
     @State private var selectedMinute: Int?
@@ -72,7 +73,7 @@ struct TodayView: View {
         .navigationTitle("Today")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { KrebbToolbar(showsSensors: $showsSensors) }
-        .sheet(isPresented: $showsSensors) { SensorSheet() }
+        .sheet(isPresented: $showsSensors) { SensorSheet(healthContext: healthContext) }
     }
 
     private var signature: some View {

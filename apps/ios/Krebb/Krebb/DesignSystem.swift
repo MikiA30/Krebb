@@ -38,6 +38,7 @@ struct KrebbToolbar: ToolbarContent {
 
 struct SensorSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject var healthContext: HealthContextStore
 
     var body: some View {
         NavigationStack {
@@ -51,7 +52,34 @@ struct SensorSheet: View {
                 Section("Your setup") {
                     LabeledContent("ESP32 + skin sensor", value: "Not connected")
                     LabeledContent("Ambient temperature", value: "Not connected")
-                    LabeledContent("Apple Watch", value: "Optional")
+                }
+                Section("Apple Watch context") {
+                    LabeledContent("Status", value: healthContext.status.label)
+                    if let reading = healthContext.latestHeartRate {
+                        LabeledContent("Latest heart rate", value: reading.displayValue)
+                        LabeledContent("Recorded", value: reading.timestamp.formatted(date: .omitted, time: .shortened))
+                        if let sourceName = reading.sourceName {
+                            LabeledContent("Source", value: sourceName)
+                        }
+                        if let stepCount = healthContext.latestStepCount {
+                            LabeledContent(
+                                "Latest step sample",
+                                value: stepCount.formatted(.number.precision(.fractionLength(0)))
+                            )
+                        }
+                    } else {
+                        Text("Krebb will read available Health samples that your paired Apple Watch has already synchronized to this iPhone.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button(healthContext.status.actionTitle) {
+                        Task {
+                            if healthContext.status == .notRequested || healthContext.status == .unavailable {
+                                await healthContext.requestAccess()
+                            }
+                            await healthContext.refresh()
+                        }
+                    }
+                    .disabled(healthContext.isLoading)
                 }
             }
             .navigationTitle("Sensors")
