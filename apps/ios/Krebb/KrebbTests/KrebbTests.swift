@@ -240,7 +240,7 @@ struct KrebbTests {
         #expect(insight.responseClass == "High early response")
         #expect(insight.knownCalories == 450)
         #expect(insight.headline.contains("450"))
-        #expect(insight.calibrationNote.contains("personal calibration point"))
+        #expect(insight.calibrationNote.contains("personal calibration"))
     }
 
 

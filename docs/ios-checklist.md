@@ -22,7 +22,7 @@ Status date: 2026-09-20
 ## Next before ML
 
 - Save one clean live BLE session named `Hardware baseline test` as demo proof.
-- Confirm reconnect behavior after app backgrounding, ESP32 power-cycle, and `Stop sensor`.
+- Confirm reconnect behavior after app backgrounding, ESP32 power-cycle, and `Stop sensor`.I
 - Decide the hackathon demo script: live 1-3 minute baseline plus saved longer session for post-meal story.
 
 ## Later

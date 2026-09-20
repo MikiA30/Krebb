@@ -23,7 +23,7 @@ enum KrebbCoach {
             headline: headline,
             explanation: explanation,
             calibrationNote: calibrationNote,
-            claimBoundary: "Experimental response guidance only. Krebb is not yet a validated calorie estimator or medical device.",
+            claimBoundary: "Early prototype guidance. Not medical advice or a final calorie estimate.",
             knownCalories: knownCalories
         )
     }
@@ -38,38 +38,46 @@ enum KrebbCoach {
     }
 
     private static func headline(for responseClass: String, knownCalories: Int?) -> String {
-        if let knownCalories {
-            return "Krebb saw a \(responseClass.lowercased()) after ~\(knownCalories) calories."
+        switch responseClass {
+        case "Control-like":
+            return "Your body stayed steady during this check."
+        case "Low confidence":
+            return "Krebb needs a cleaner sensor fit for this check."
+        case "Needs more data":
+            return "Krebb needs a little more time to read this check."
+        default:
+            if let knownCalories {
+                return "Your body showed a clear response after this ~\(knownCalories)-calorie meal."
+            }
+            return "Your body showed a clear response after this meal."
         }
-        return "Krebb saw a \(responseClass.lowercased())."
     }
 
     private static func explanation(for responseClass: String, summary: SessionFeatureSummary) -> String {
-        let peak = signedTemperature(summary.peakDeltaSkinTemperatureC)
-        let latest = signedTemperature(summary.latestDeltaSkinTemperatureC)
-        let samples = summary.observationSampleCount
-        let quality = summary.averageSensorQuality.map { $0.formatted(.number.precision(.fractionLength(2))) } ?? "unknown"
-
         switch responseClass {
         case "Control-like":
-            return "The curve stayed close to baseline across \(samples) observation samples. Peak change was \(peak), with latest change at \(latest)."
+            return "This looked like normal drift instead of a strong food response, which makes it useful as a comparison point."
         case "Low confidence":
-            return "The signal moved, but sensor quality averaged \(quality). Treat this as a contact-quality check before using it as calibration data."
+            return "The reading changed, but contact quality was not steady enough to trust the pattern. Try again with the probe held more consistently."
         case "Needs more data":
-            return "This session does not have enough usable observation samples yet. Record a baseline, mark first bite, then keep the phone session running."
+            return "Start with a short quiet baseline, mark the first bite, then let the check run while you wait."
+        case "Small early response":
+            return "Krebb picked up a small shift from your starting point. A few more labeled meals will help separate food response from everyday noise."
+        case "Moderate early response":
+            return "Krebb picked up a noticeable shift from your starting point. This can become part of your personal meal-response profile."
         default:
-            return "The curve rose above baseline across \(samples) observation samples. Peak change was \(peak), latest change was \(latest), and average sensor quality was \(quality)."
+            return "Krebb picked up a strong shift from your starting point. This is the kind of signal future versions can learn from once you have more labeled meals."
         }
     }
 
     private static func calibrationNote(for session: MeasurementSession, knownCalories: Int?) -> String {
         if let knownCalories {
-            return "Use this as one personal calibration point at \(knownCalories) calories. A real calorie model needs more labeled meals from this same person."
+            return "Saved as one labeled example for your personal calibration: \(knownCalories) calories."
         }
         if session.note.localizedCaseInsensitiveContains("no meal") {
-            return "This is useful as a control point: it teaches the model what your no-food baseline drift looks like."
+            return "Saved as a no-meal comparison so Krebb can learn what steady looks like for you."
         }
-        return "Add the known calories to the label when available, like ‘sandwich 450 cal’, so future versions can learn your personal response curve."
+        return "If you know the calories, add them to the title later so Krebb can use this as a labeled example."
     }
 
     private static func knownCalories(from note: String) -> Int? {
@@ -77,8 +85,4 @@ enum KrebbCoach {
         return tokens.compactMap(Int.init).first { (50...2000).contains($0) }
     }
 
-    private static func signedTemperature(_ value: Double?) -> String {
-        guard let value else { return "—" }
-        return "\(value.formatted(.number.sign(strategy: .always()).precision(.fractionLength(2)))) °C"
-    }
 }
