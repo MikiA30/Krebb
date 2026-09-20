@@ -51,6 +51,8 @@ void QualityEstimator::reset() {
   next_ = 0;
   count_ = 0;
   consecutiveValidS_ = 0;
+  unstableLatched_ = false;
+  calmStreakS_ = 0;
   value_ = QUALITY_INVALID;
   windowRangeC_ = 0.0f;
   windowStdDevC_ = 0.0f;
@@ -99,8 +101,40 @@ void QualityEstimator::update(bool valid, float skinTemperatureC) {
             variationScore(windowStdDevC_, QUALITY_STDDEV_STABLE_C, QUALITY_STDDEV_UNSTABLE_C));
 
   const bool warming = consecutiveValidS_ < QUALITY_WARMUP_S;
-  const bool unstable = (windowRangeC_ > QUALITY_RANGE_UNSTABLE_C) ||
-                        (windowStdDevC_ > QUALITY_STDDEV_UNSTABLE_C);
+
+  // UNSTABLE is latched, with a tighter exit than entry. A window range that
+  // hovers around QUALITY_RANGE_UNSTABLE_C (0.56 -> 0.62 -> 0.56) crosses the
+  // entry threshold repeatedly, and without hysteresis the reported state -
+  // and the quality band with it - flips every second or two. The app would
+  // show that as flicker, which reads as a hardware fault rather than what it
+  // is: a trace sitting right on the line.
+  //
+  // Entry is immediate, because a reading that has genuinely gone unsteady
+  // should stop being called settled at once. Leaving needs the range to be
+  // at or below QUALITY_UNSTABLE_EXIT_RANGE_C for QUALITY_UNSTABLE_EXIT_HOLD_S
+  // consecutive 1 Hz samples: a real settle clears that easily, an oscillation
+  // around the entry threshold never does.
+  const bool variationHigh = (windowRangeC_ > QUALITY_RANGE_UNSTABLE_C) ||
+                             (windowStdDevC_ > QUALITY_STDDEV_UNSTABLE_C);
+
+  if (variationHigh) {
+    unstableLatched_ = true;
+    calmStreakS_ = 0;
+  } else if (unstableLatched_) {
+    if (windowRangeC_ <= QUALITY_UNSTABLE_EXIT_RANGE_C) {
+      ++calmStreakS_;
+      if (calmStreakS_ >= QUALITY_UNSTABLE_EXIT_HOLD_S) {
+        unstableLatched_ = false;
+        calmStreakS_ = 0;
+      }
+    } else {
+      // Inside the deadband: not high enough to re-trigger, not calm enough to
+      // count towards release. The streak restarts from zero.
+      calmStreakS_ = 0;
+    }
+  }
+
+  const bool unstable = unstableLatched_;
 
   if (warming || unstable) {
     const float warmProgress =

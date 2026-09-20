@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 #include <DHTesp.h>
-#include <math.h>
 
+#include "ambient_validate.h"
 #include "krebb_params.h"
 #include "pins.h"
 
@@ -58,16 +58,17 @@ bool AmbientSensor::service(uint32_t nowMs, uint32_t msSinceTick) {
     return true;
   }
 
-  if (isnan(reading.temperature)) {
-    lastAttemptFailed_ = true;
-    lastError_ = "DHT11 returned NaN";
-    return true;
-  }
+  // A checksum-clean frame is not yet a measurement: an all-zero or
+  // out-of-envelope frame is a sensor fault wearing a valid checksum. Rejected
+  // samples are failed reads, exactly like a timeout - they leave the previous
+  // valid reading and its timestamp untouched, so the freshness rule expires
+  // it on schedule and the packet falls back to null.
+  const AmbientValidation check =
+      validateAmbientSample(reading.temperature, reading.humidity);
 
-  if (reading.temperature < AMBIENT_SANITY_MIN_C ||
-      reading.temperature > AMBIENT_SANITY_MAX_C) {
+  if (!check.valid) {
     lastAttemptFailed_ = true;
-    lastError_ = "DHT11 reading outside the 0-50 degC operating range";
+    lastError_ = ambientRejectMessage(check.reject);
     return true;
   }
 
@@ -81,11 +82,10 @@ bool AmbientSensor::service(uint32_t nowMs, uint32_t msSinceTick) {
   lastValid_.observedAtMs = nowMs;
 
   // Humidity is captured for the serial log only. It is deliberately not part
-  // of the BLE packet and must never be added to it.
-  if (!isnan(reading.humidity)) {
-    hasHumidity_ = true;
-    humidityPercent_ = reading.humidity;
-  }
+  // of the BLE packet and must never be added to it. Validation has already
+  // established it is finite and inside the datasheet range.
+  hasHumidity_ = true;
+  humidityPercent_ = reading.humidity;
 
   return true;
 }

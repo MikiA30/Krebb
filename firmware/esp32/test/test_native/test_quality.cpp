@@ -150,6 +150,124 @@ void test_reason_names() {
                            krebb::qualityReasonName(QualityReason::DISCONNECTED));
 }
 
+// --------------------------------------------------------------- hysteresis
+//
+// The bench log flipped STABLE (0.73-0.87) / UNSTABLE (0.45) second by second
+// while the window range hovered around 0.6 C. These cover the latch.
+
+// Fills the window with a trace of a given peak-to-peak range, centred on
+// `centre`, so windowRangeC() lands on `rangeC` exactly.
+void feedRange(QualityEstimator& q, uint32_t seconds, float rangeC,
+               float centre = 33.40f) {
+  for (uint32_t i = 0; i < seconds; ++i) {
+    q.update(true, (i % 2 == 0) ? centre - rangeC * 0.5f : centre + rangeC * 0.5f);
+  }
+}
+
+void test_near_threshold_oscillation_does_not_flap() {
+  QualityEstimator q;
+  feedSteady(q, P::QUALITY_WARMUP_S + 30);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::STABLE), static_cast<int>(q.reason()));
+
+  // Cross the entry threshold once: now latched UNSTABLE.
+  feedRange(q, P::QUALITY_WINDOW_S, 0.62f);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE), static_cast<int>(q.reason()));
+
+  // Now oscillate either side of it, the way the bench trace did. The range
+  // never gets down to the 0.4 C exit bound, so the state must not move.
+  for (int cycle = 0; cycle < 6; ++cycle) {
+    feedRange(q, P::QUALITY_WINDOW_S, 0.56f);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE),
+                          static_cast<int>(q.reason()));
+    feedRange(q, P::QUALITY_WINDOW_S, 0.62f);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE),
+                          static_cast<int>(q.reason()));
+  }
+}
+
+void test_steady_ramp_goes_unstable() {
+  QualityEstimator q;
+  feedSteady(q, P::QUALITY_WARMUP_S + 30);
+
+  // 0.1 C per second: after a full window the range is ~1.9 C, well past the
+  // entry threshold.
+  float c = 33.40f;
+  for (uint32_t i = 0; i < P::QUALITY_WINDOW_S; ++i) {
+    q.update(true, c);
+    c += 0.1f;
+  }
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE), static_cast<int>(q.reason()));
+  TEST_ASSERT_TRUE((q.windowRangeC()) > (P::QUALITY_RANGE_UNSTABLE_C));
+}
+
+void test_settling_goes_stable_only_after_the_hold() {
+  QualityEstimator q;
+  feedSteady(q, P::QUALITY_WARMUP_S + 30);
+  feedRange(q, P::QUALITY_WINDOW_S, 0.62f);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE), static_cast<int>(q.reason()));
+
+  // Flush the swinging samples out of the window with steady ones. Only once
+  // the window range itself is calm does the release clock start, so step
+  // through one sample at a time and watch the streak.
+  uint32_t calmSamples = 0;
+  for (uint32_t i = 0; i < P::QUALITY_WINDOW_S * 2; ++i) {
+    q.update(true, 33.40f);
+    if (q.windowRangeC() <= P::QUALITY_UNSTABLE_EXIT_RANGE_C) {
+      ++calmSamples;
+    } else {
+      calmSamples = 0;
+    }
+
+    if (calmSamples < P::QUALITY_UNSTABLE_EXIT_HOLD_S) {
+      TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE),
+                            static_cast<int>(q.reason()));
+    } else {
+      TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::STABLE),
+                            static_cast<int>(q.reason()));
+    }
+  }
+
+  // It did settle in the end, rather than the loop simply never reaching it.
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::STABLE), static_cast<int>(q.reason()));
+  TEST_ASSERT_TRUE((q.value()) >= (P::QUALITY_STABLE_MIN));
+}
+
+void test_deadband_range_does_not_count_towards_release() {
+  QualityEstimator q;
+  feedSteady(q, P::QUALITY_WARMUP_S + 30);
+  feedRange(q, P::QUALITY_WINDOW_S, 0.62f);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE), static_cast<int>(q.reason()));
+
+  // 0.5 C sits between the 0.4 C exit bound and the 0.6 C entry threshold: it
+  // neither re-triggers nor earns credit, however long it lasts.
+  feedRange(q, P::QUALITY_WINDOW_S * 5, 0.50f);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE), static_cast<int>(q.reason()));
+  TEST_ASSERT_EQUAL_UINT32(0, q.calmStreakS());
+}
+
+void test_invalid_read_clears_the_latch() {
+  QualityEstimator q;
+  feedSteady(q, P::QUALITY_WARMUP_S + 30);
+  feedRange(q, P::QUALITY_WINDOW_S, 1.20f);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::UNSTABLE), static_cast<int>(q.reason()));
+
+  q.update(false, 0.0f);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::DISCONNECTED), static_cast<int>(q.reason()));
+  TEST_ASSERT_EQUAL_UINT32(0, q.calmStreakS());
+
+  // Fresh contact: the new window starts clean, so the old latch cannot make
+  // the reconnected sensor look unstable. Warmup governs from here.
+  feedSteady(q, 3);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(QualityReason::WARMING), static_cast<int>(q.reason()));
+}
+
+void test_hysteresis_thresholds_are_ordered() {
+  // The exit bound must sit strictly below the entry threshold, or there is no
+  // deadband and the latch buys nothing.
+  TEST_ASSERT_TRUE((P::QUALITY_UNSTABLE_EXIT_RANGE_C) < (P::QUALITY_RANGE_UNSTABLE_C));
+  TEST_ASSERT_TRUE((P::QUALITY_UNSTABLE_EXIT_HOLD_S) >= (1u));
+}
+
 }  // namespace
 
 void run_quality_tests() {
@@ -166,4 +284,10 @@ void run_quality_tests() {
   RUN_TEST(test_components_are_reported);
   RUN_TEST(test_value_always_within_zero_and_one);
   RUN_TEST(test_reason_names);
+  RUN_TEST(test_near_threshold_oscillation_does_not_flap);
+  RUN_TEST(test_steady_ramp_goes_unstable);
+  RUN_TEST(test_settling_goes_stable_only_after_the_hold);
+  RUN_TEST(test_deadband_range_does_not_count_towards_release);
+  RUN_TEST(test_invalid_read_clears_the_latch);
+  RUN_TEST(test_hysteresis_thresholds_are_ordered);
 }

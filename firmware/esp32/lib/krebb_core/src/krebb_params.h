@@ -66,6 +66,13 @@ constexpr uint32_t AMBIENT_MAX_AGE_MS = 5000;
 constexpr float AMBIENT_SANITY_MIN_C = 0.0f;
 constexpr float AMBIENT_SANITY_MAX_C = 50.0f;
 
+// DHT11 humidity operating range (datasheet 20-90 %RH). Humidity itself is
+// never transmitted, but it is the only cross-check the part offers: a frame
+// reporting humidity outside its own specified range did not come from a
+// healthy sensor, so the temperature in that same frame is not trusted either.
+constexpr float AMBIENT_HUMIDITY_MIN_PCT = 20.0f;
+constexpr float AMBIENT_HUMIDITY_MAX_PCT = 90.0f;
+
 // ----------------------------------------------------------------- quality
 // sensorQuality is derived ONLY from DS18B20 validity and recent variation.
 // Ambient temperature is never an input: it is reported so the app/ML side can
@@ -87,6 +94,14 @@ constexpr float QUALITY_RANGE_STABLE_C = 0.10f;
 constexpr float QUALITY_RANGE_UNSTABLE_C = 0.60f;
 constexpr float QUALITY_STDDEV_STABLE_C = 0.03f;
 constexpr float QUALITY_STDDEV_UNSTABLE_C = 0.20f;
+
+// Hysteresis on the UNSTABLE decision. Entry uses the scoring thresholds
+// above; leaving UNSTABLE needs the window range to sit at or below this
+// tighter bound for this many consecutive 1 Hz samples. Without it, a window
+// range hovering either side of QUALITY_RANGE_UNSTABLE_C makes the reported
+// state flip every second or two, which the app would see as flicker.
+constexpr float QUALITY_UNSTABLE_EXIT_RANGE_C = 0.40f;
+constexpr uint32_t QUALITY_UNSTABLE_EXIT_HOLD_S = 5;
 
 // Band edges from the context file's quality heuristic.
 constexpr float QUALITY_INVALID = 0.0f;         // disconnected / invalid read

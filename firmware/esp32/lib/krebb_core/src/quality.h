@@ -47,12 +47,23 @@ class QualityEstimator {
   uint32_t consecutiveValidS() const { return consecutiveValidS_; }
   uint8_t windowCount() const { return count_; }
 
+  // Consecutive samples so far whose window range sat at or below
+  // QUALITY_UNSTABLE_EXIT_RANGE_C while latched UNSTABLE. 0 when not latched.
+  uint32_t calmStreakS() const { return calmStreakS_; }
+
  private:
   float samples_[params::QUALITY_WINDOW_S];
   uint8_t next_;   // ring-buffer write index
   uint8_t count_;  // samples held, saturating at QUALITY_WINDOW_S
 
   uint32_t consecutiveValidS_;
+
+  // UNSTABLE hysteresis. Entering is immediate; leaving needs a sustained calm
+  // window, so a trace hovering around the threshold reports one state rather
+  // than alternating every second.
+  bool unstableLatched_;
+  uint32_t calmStreakS_;
+
   float value_;
   float windowRangeC_;
   float windowStdDevC_;

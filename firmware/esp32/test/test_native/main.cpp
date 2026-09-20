@@ -26,6 +26,8 @@ int main(int, char**) {
   run_packet_tests();
   run_quality_tests();
   run_freshness_tests();
+  run_ambient_validate_tests();
+  run_status_line_tests();
   run_time_source_tests();
   run_scenario_tests();
 

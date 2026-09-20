@@ -26,6 +26,7 @@
 #include "pins.h"
 #include "quality.h"
 #include "skin_sensor.h"
+#include "status_line.h"
 #include "time_source.h"
 
 namespace {
@@ -138,42 +139,35 @@ void logSensorErrors(const krebb::AmbientSelection& ambient) {
 }
 
 void printStatusLine(uint32_t nowMs, const krebb::AmbientSelection& ambient) {
-  char skinField[32];
-  if (skinSensor.valid()) {
-    snprintf(skinField, sizeof(skinField), "skin=%.2fC ok", skinSensor.celsius());
-  } else {
-    snprintf(skinField, sizeof(skinField), "skin=null %s",
-             skinSensor.devicePresent() ? "ERR" : "NO_DEVICE");
-  }
+  krebb::StatusLineInput line;
+  line.uptimeS = nowMs / 1000UL;
 
-  char ambientField[48];
-  if (ambient.present) {
-    snprintf(ambientField, sizeof(ambientField), "amb=%.1fC age=%.1fs",
-             ambient.celsius, ambient.ageMs / 1000.0f);
-  } else {
-    snprintf(ambientField, sizeof(ambientField), "amb=null age=%.1fs",
-             ambient.ageMs / 1000.0f);
-  }
+  line.skinValid = skinSensor.valid();
+  line.skinCelsius = skinSensor.celsius();
+  line.skinDevicePresent = skinSensor.devicePresent();
 
-  char humidityField[24];
-  if (ambientSensor.hasHumidity()) {
-    // Serial only. Humidity is not part of the BLE contract.
-    snprintf(humidityField, sizeof(humidityField), " hum=%.0f%%",
-             ambientSensor.humidityPercent());
-  } else {
-    humidityField[0] = '\0';
-  }
+  line.ambientPresent = ambient.present;
+  line.ambientCelsius = ambient.celsius;
+  line.ambientAgeMs = ambient.ageMs;
 
-  snprintf(statusLine, sizeof(statusLine),
-           "[%05lus] %s | %s%s | q=%.2f %s win_range=%.2fC consec=%lus | "
-           "ble=%s mtu=%u | TIME=%s",
-           static_cast<unsigned long>(nowMs / 1000UL), skinField, ambientField,
-           humidityField, quality.value(),
-           krebb::qualityReasonName(quality.reason()), quality.windowRangeC(),
-           static_cast<unsigned long>(quality.consecutiveValidS()),
-           krebb::bleStateName(bleService.state()),
-           static_cast<unsigned>(bleService.mtu()),
-           timeSource.isSynced() ? "SYNCED" : "UNSYNCED(dev-fallback)");
+  // Humidity is serial-only debug and came out of the same DHT11 frame as the
+  // ambient temperature, so it is shown only while that frame is still fresh.
+  line.humidityPresent = ambientSensor.hasHumidity();
+  line.humidityPercent = ambientSensor.humidityPercent();
+
+  line.quality = quality.value();
+  line.qualityReason = krebb::qualityReasonName(quality.reason());
+  line.windowRangeC = quality.windowRangeC();
+  line.consecutiveValidS = quality.consecutiveValidS();
+
+  line.bleState = krebb::bleStateName(bleService.state());
+  line.mtu = bleService.mtu();
+  line.timeSynced = timeSource.isSynced();
+
+  if (krebb::formatStatusLine(statusLine, sizeof(statusLine), line) == 0) {
+    Serial.println("STATUS ERROR: could not format the status line");
+    return;
+  }
 
   Serial.println(statusLine);
 }
