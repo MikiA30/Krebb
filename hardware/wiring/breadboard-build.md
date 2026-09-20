@@ -12,7 +12,7 @@ If your DevKitC-1 shipped with the pin headers **unsoldered**, solder them first
 
 ## Parts for this build
 
-See [../bom/bom.md](../bom/bom.md). For this sheet: breadboard with a power-rail pair (half-size is enough), 4 female-to-male jumpers, 5 male-to-male jumpers, 1 x 4.7 kOhm, 1 x 10 kOhm (bare DHT11 only).
+See [../bom/bom.md](../bom/bom.md). For this sheet: breadboard with a power-rail pair (half-size is enough), 4 female-to-male jumpers, 4 male-to-male jumpers (plus spares), 1 x 4.7 kOhm, 1 x 10 kOhm (bare DHT11 only).
 
 ## Breadboard conventions used here
 

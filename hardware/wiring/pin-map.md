@@ -131,7 +131,7 @@ Firmware notes recorded here because the hardware sets them (not solved in this 
 
 ### DS18B20 (skin-contact temperature): powered mode
 
-**Warning: reversing VDD and GND on a DS18B20 is widely reported to destroy it and make it heat up fast, and a hot part is a burn risk when it is taped to skin. Confirm the pinout before applying power, and never power a part that has a wire against skin until it has been checked on the bench.** (The datasheet lists absolute-maximum ratings but does not spell out this failure; treat it as a hard rule anyway.)
+**Warning: reversing VDD and GND on a DS18B20 is widely reported to destroy it and make it heat up fast, and a hot part is a burn risk when it is taped to skin. Confirm the pinout before applying power, and never power a part that has a wire against skin until it has been checked on the bench.** (The datasheet's absolute-maximum rating is -0.5 V to +6.0 V on any pin relative to ground, and a reversed supply violates the lower limit by several volts. The datasheet does not describe the heating failure itself; treat it as a hard rule anyway.)
 
 **Bare TO-92 package.** The datasheet gives pins numbered for the **BOTTOM VIEW** (looking at the lead ends): pin 1 = GND, pin 2 = DQ, pin 3 = VDD.
 
