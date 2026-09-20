@@ -42,12 +42,24 @@ enum OpenAICoachService {
         let auc = string(summary.temperatureAreaCelsiusSeconds)
         let quality = string(summary.averageSensorQuality)
         return """
-        You are Krebb Coach, a concise consumer health-product explainer.
-        Write exactly 3 short bullets for this user after a food response test:
-        1. what Krebb observed,
-        2. why it matters for personalized meal-response calibration,
-        3. the honest limitation.
-        Do not give medical advice. Do not claim validated calorie estimation.
+        You are Krebb Coach inside an iPhone health prototype.
+        Write for a normal consumer, not an engineer.
+
+        Output rules:
+        - Plain text only. No Markdown, no asterisks, no bold, no headings with colons, no bullet symbols, and no hyphen bullets.
+        - Write exactly 3 short numbered lines starting with "1)", "2)", and "3)".
+        - Each line should be one sentence under 22 words.
+        - Be specific enough to be useful, but avoid dumping raw metrics.
+        - Mention the meal name naturally.
+        - If known calories are present, mention that this is saved as a labeled example.
+        - Do not give medical advice.
+        - Do not claim calorie estimation.
+        - Do not say "skin temperature is an indirect signal" unless you can make it sound natural.
+
+        Meaning to convey:
+        1) What changed after the meal.
+        2) What the user should do next to make Krebb smarter.
+        3) The limitation in friendly language.
 
         Session label: \(session.title)
         Known calories if present: \(knownCalories)
@@ -80,9 +92,26 @@ enum OpenAICoachService {
             throw OpenAICoachError.requestFailed(status: http.statusCode, message: message)
         }
         let decoded = try JSONDecoder().decode(OpenAICoachResponse.self, from: data)
-        let text = decoded.text
+        let text = cleanForPhone(decoded.text)
         guard !text.isEmpty else { throw OpenAICoachError.emptyResponse }
         return text
+    }
+
+    static func cleanForPhone(_ text: String) -> String {
+        let cleanedLines = text
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "*", with: "")
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { rawLine in
+                var line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+                while line.hasPrefix("-") || line.hasPrefix("•") || line.hasPrefix("–") || line.hasPrefix("—") {
+                    line.removeFirst()
+                    line = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                return line
+            }
+            .filter { !$0.isEmpty }
+        return cleanedLines.joined(separator: "\n")
     }
 
     private static func string(_ value: Double?) -> String {

@@ -250,4 +250,12 @@ struct KrebbTests {
         #expect(decoded.text == "- Krebb observed a high response.")
     }
 
+
+    @Test func openAICoachCleanerRemovesMarkdownBullets() {
+        let cleaned = OpenAICoachService.cleanForPhone("- **Observed:** A clear meal response.\n- **Next:** Save similar meals.")
+        #expect(!cleaned.contains("**"))
+        #expect(!cleaned.contains("-"))
+        #expect(cleaned.contains("Observed:"))
+    }
+
 }

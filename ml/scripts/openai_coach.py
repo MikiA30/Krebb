@@ -26,24 +26,35 @@ def classify_locally(session_json: Path, known_calories: int | None) -> dict:
 
 def build_prompt(summary: dict) -> str:
     features = summary["features"]
-    return f"""You are Krebb Coach, a concise consumer health-product explainer.
-Use the session summary below to write 3 short bullets for a hackathon demo:
-1. what Krebb observed,
-2. why it matters for personalized meal-response calibration,
-3. the honest limitation.
-Do not give medical advice. Do not claim validated calorie estimation.
+    return f"""You are Krebb Coach inside an iPhone health prototype.
+Write for a normal consumer, not an engineer.
+
+Output rules:
+- Plain text only. No Markdown, no asterisks, no bold, no headings with colons, no bullet symbols, and no hyphen bullets.
+- Write exactly 3 short numbered lines starting with "1)", "2)", and "3)".
+- Each line should be one sentence under 22 words.
+- Be specific enough to be useful, but avoid dumping raw metrics.
+- Mention the meal name naturally.
+- If known calories are present, mention that this is saved as a labeled example.
+- Do not give medical advice.
+- Do not claim calorie estimation.
+
+Meaning to convey:
+1) What changed after the meal.
+2) What the user should do next to make Krebb smarter.
+3) The limitation in friendly language.
 
 Session:
-- label: {summary.get('note') or 'unlabeled'}
-- known calories: {summary.get('knownCalories')}
-- response class: {summary.get('responseClass')}
-- explanation: {summary.get('explanation')}
-- baseline skin C: {features.get('baselineSkinTemperatureC')}
-- peak delta C: {features.get('peakDeltaSkinTemperatureC')}
-- latest delta C: {features.get('latestDeltaSkinTemperatureC')}
-- temperature AUC C*s: {features.get('temperatureAreaCelsiusSeconds')}
-- average sensor quality: {features.get('averageSensorQuality')}
-- observation samples: {features.get('observationSampleCount')}
+label: {summary.get('note') or 'unlabeled'}
+known calories: {summary.get('knownCalories')}
+response class: {summary.get('responseClass')}
+explanation: {summary.get('explanation')}
+baseline skin C: {features.get('baselineSkinTemperatureC')}
+peak delta C: {features.get('peakDeltaSkinTemperatureC')}
+latest delta C: {features.get('latestDeltaSkinTemperatureC')}
+temperature AUC C*s: {features.get('temperatureAreaCelsiusSeconds')}
+average sensor quality: {features.get('averageSensorQuality')}
+observation samples: {features.get('observationSampleCount')}
 """
 
 
