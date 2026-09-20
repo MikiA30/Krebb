@@ -473,6 +473,7 @@ struct SessionDetailView: View {
                 if !session.note.isEmpty { Text(session.note) }
                 SessionReadout(session: session)
                 FeatureSummaryView(summary: session.featureSummary)
+                KrebbCoachCard(session: session)
 #if DEBUG
                 DisclosureGroup("Developer export", isExpanded: $showsDeveloperExport) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -509,6 +510,33 @@ struct SessionDetailView: View {
         .background(KrebbPalette.canvas)
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct KrebbCoachCard: View {
+    let session: MeasurementSession
+
+    private var insight: KrebbCoachInsight { KrebbCoach.insight(for: session) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Krebb Coach", systemImage: "sparkles")
+                .font(.headline)
+                .foregroundStyle(KrebbPalette.blush)
+            Text(insight.headline)
+                .font(.title3.weight(.semibold))
+            Text(insight.explanation)
+                .foregroundStyle(.secondary)
+            Text(insight.calibrationNote)
+                .font(.subheadline)
+            Text(insight.claimBoundary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 16))
+        .accessibilityIdentifier("krebbCoachCard")
     }
 }
 

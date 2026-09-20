@@ -224,4 +224,23 @@ struct KrebbTests {
         #expect(restored.active?.stage == .baseline)
     }
 
+    @Test @MainActor func coachTurnsLabeledSessionIntoCalibrationLanguage() throws {
+        var session = MeasurementSession(startedAt: Date(timeIntervalSince1970: 1_760_000_000), isSimulated: false, note: "Turkey sandwich 450 cal")
+        session.observationStartedAt = session.startedAt.addingTimeInterval(3)
+        session.endedAt = session.startedAt.addingTimeInterval(6)
+        session.readings = [
+            SessionReading(recordedAt: session.startedAt, skinTemperatureC: 33.0, ambientTemperatureC: 23, sensorQuality: 0.8),
+            SessionReading(recordedAt: session.startedAt.addingTimeInterval(1), skinTemperatureC: 33.1, ambientTemperatureC: 23, sensorQuality: 0.8),
+            SessionReading(recordedAt: session.startedAt.addingTimeInterval(2), skinTemperatureC: 33.2, ambientTemperatureC: 23, sensorQuality: 0.8),
+            SessionReading(recordedAt: session.startedAt.addingTimeInterval(4), skinTemperatureC: 35.4, ambientTemperatureC: 23.1, sensorQuality: 0.8),
+            SessionReading(recordedAt: session.startedAt.addingTimeInterval(5), skinTemperatureC: 35.7, ambientTemperatureC: 23.1, sensorQuality: 0.8)
+        ]
+
+        let insight = KrebbCoach.insight(for: session)
+        #expect(insight.responseClass == "High early response")
+        #expect(insight.knownCalories == 450)
+        #expect(insight.headline.contains("450"))
+        #expect(insight.calibrationNote.contains("personal calibration point"))
+    }
+
 }
