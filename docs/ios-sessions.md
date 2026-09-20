@@ -5,10 +5,12 @@ The app records foreground sessions through baseline, observation, and completio
 ## Try it
 
 1. Open Check and scan for Krebb One, or start a simulation.
-2. Wait for at least three generated samples, optionally add a note, then begin observation.
-3. Allow at least one observation sample, then finish and save.
-4. Open Journal and select the simulation. Relaunch the app and verify it remains available.
-5. Relaunch during a check to resume the autosaved draft. Recording gaps are not filled with invented samples.
+2. For hardware, select the detected BLE device, connect, and wait for `Packets received` to increase.
+3. Start a live sensor check after packets arrive.
+4. Wait for at least three samples, optionally add a note, then begin observation.
+5. Allow at least one observation sample, then finish and save.
+6. Open Journal and select the saved check. Relaunch the app and verify it remains available.
+7. Relaunch during a check to resume the autosaved draft. Recording gaps are not filled with invented samples.
 
 Today displays the active recording or latest saved session. Before any recording exists, Today retains its labeled example curve. Session provenance is persisted in each record and remains visible in Journal.
 
@@ -34,6 +36,6 @@ HealthKit access remains explicit in Sensors. Already-loaded optional Health sna
 
 ## Next integration gate
 
-Validate BLE against the physical board, then tune baseline duration and quality gates from real skin-contact data. Live sessions still need cancellation/interruption handling. The export is ready for the Python pipeline, but the schema can still evolve once real sessions show which fields are noisy or missing.
+BLE has been validated against the physical board on iPhone. Next, tune baseline duration and quality gates from real skin-contact data. Live sessions still need cancellation/interruption handling. The export is ready for the Python pipeline, but the schema can still evolve once real sessions show which fields are noisy or missing.
 
 Tests cover draft recovery, completion/reload, fixed baseline, Health timestamp retention and deduplication, missing/invalid values, corrupt archives, write failures, and the UI save/relaunch flow.

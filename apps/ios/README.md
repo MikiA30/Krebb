@@ -8,7 +8,7 @@ Krebb/KrebbTests/     Unit tests
 Krebb/KrebbUITests/   UI tests
 ```
 
-The app is a sample-data SwiftUI prototype. Today shows an interactive temperature curve relative to baseline; Check previews the baseline and observation stages; Journal opens an explicitly labeled example session. Sample checks retain their stage across tabs but do not collect or persist real measurements. The BLE adapter will later decode the shared sensor schema in `shared/schemas/`.
+The app records local sessions from either simulation or the Krebb One BLE stream. Check handles scanning, explicit BLE connection, live packet recording, baseline, observation, Health context attachment, and saving. Journal shows saved sessions, response features, and a debug export for the future pipeline.
 
 The interface uses native `TabView`, a `NavigationStack` per tab, large navigation titles, system sheets, and Liquid Glass buttons on iOS 26. The coral temperature curve and quiet dark surfaces provide Krebb’s visual identity without activity rings or invented response percentages. Chart values are sample temperature changes, not metabolic scores.
 
