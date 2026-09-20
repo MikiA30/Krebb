@@ -292,6 +292,7 @@ struct JournalView: View {
 
 struct SessionDetailView: View {
     let session: MeasurementSession
+    @State private var showsDeveloperExport = false
     @State private var showsExport = false
 
     var body: some View {
@@ -303,31 +304,35 @@ struct SessionDetailView: View {
                 if !session.note.isEmpty { Text(session.note) }
                 SessionReadout(session: session)
                 FeatureSummaryView(summary: session.featureSummary)
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Data export").font(.headline)
-                    Text("This is the session package we can hand to the Python pipeline later. It stays local unless you share it.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    HStack {
-                        ShareLink(item: session.exportJSONString,
-                                  subject: Text("Krebb session \(session.title)")) {
-                            Label("Share JSON", systemImage: "square.and.arrow.up")
+#if DEBUG
+                DisclosureGroup("Developer export", isExpanded: $showsDeveloperExport) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("This is the session package we can hand to the Python pipeline later. It stays local unless you share it.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        HStack {
+                            ShareLink(item: session.exportJSONString,
+                                      subject: Text("Krebb session \(session.title)")) {
+                                Label("Share JSON", systemImage: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.bordered)
+                            Button(showsExport ? "Hide preview" : "Preview JSON", systemImage: "doc.text.magnifyingglass") {
+                                showsExport.toggle()
+                            }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
-                        Button(showsExport ? "Hide preview" : "Preview JSON", systemImage: "doc.text.magnifyingglass") {
-                            showsExport.toggle()
+                        if showsExport {
+                            ScrollView(.horizontal) {
+                                Text(session.exportJSONString)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                                    .padding(12)
+                            }
+                            .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 12))
                         }
-                        .buttonStyle(.bordered)
-                    }
-                    if showsExport {
-                        ScrollView(.horizontal) {
-                            Text(session.exportJSONString)
-                                .font(.caption.monospaced())
-                                .textSelection(.enabled)
-                                .padding(12)
-                        }
-                        .background(KrebbPalette.surface, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
+                .font(.subheadline.weight(.medium))
+#endif
                 Text("Temperature trends are experimental observations, not a metabolic score.")
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding(24)
